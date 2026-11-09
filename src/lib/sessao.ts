@@ -1,6 +1,7 @@
-import { supabaseConfigurado } from "./supabase/config";
-import { criarClienteServidor } from "./supabase/server";
+"use client";
 
+import { useEffect, useState } from "react";
+import { supabaseConfigurado } from "./supabase/config";
 import { ROTULO_FUNCAO, type Funcao } from "./sessao-rotulos";
 export { ROTULO_FUNCAO, type Funcao };
 
@@ -22,15 +23,33 @@ const SESSAO_DEMO: Sessao = {
   demo: true,
 };
 
-/** Carrega o usuário logado e o restaurante ativo (primeiro vínculo do usuário). */
-export async function obterSessao(): Promise<Sessao | null> {
-  if (!supabaseConfigurado) return SESSAO_DEMO;
+const CHAVE = "carlos:sessao";
 
-  const sb = await criarClienteServidor();
+// A sessão é carregada uma vez por aba e guardada aqui. Antes, cada clique no
+// menu ia ao servidor conferir o login e buscar o restaurante de novo; agora
+// as telas do painel abrem direto no navegador e o login é conferido no
+// middleware (que bloqueia quem não está logado).
+let atual: Sessao | null = supabaseConfigurado ? null : SESSAO_DEMO;
+let carregando: Promise<Sessao | null> | null = null;
+
+async function buscar(): Promise<Sessao | null> {
+  // Carregado sob demanda para não pesar a abertura das telas
+  const { criarClienteNavegador } = await import("./supabase/client");
+  const sb = criarClienteNavegador();
   const {
-    data: { user },
-  } = await sb.auth.getUser();
+    data: { session },
+  } = await sb.auth.getSession();
+  const user = session?.user;
   if (!user) return null;
+
+  // Mesma pessoa na mesma aba: reaproveita sem consultar o banco
+  try {
+    const salvo = sessionStorage.getItem(CHAVE);
+    if (salvo) {
+      const s = JSON.parse(salvo) as Sessao & { userId: string };
+      if (s.userId === user.id) return s;
+    }
+  } catch {}
 
   const { data: vinculo } = await sb
     .from("membros")
@@ -41,7 +60,7 @@ export async function obterSessao(): Promise<Sessao | null> {
     .maybeSingle();
 
   const restaurante = vinculo?.restaurantes as unknown as { id: string; nome: string } | null;
-  return {
+  const s: Sessao = {
     nome: vinculo?.nome_exibicao ?? user.email ?? "Usuário",
     funcao: vinculo ? ROTULO_FUNCAO[vinculo.funcao as Funcao] : "Sem restaurante",
     restaurante: restaurante?.nome ?? "Nenhum restaurante vinculado",
@@ -49,4 +68,38 @@ export async function obterSessao(): Promise<Sessao | null> {
     caixa: null, // Fase 1: controle de caixa
     demo: false,
   };
+  try {
+    sessionStorage.setItem(CHAVE, JSON.stringify({ ...s, userId: user.id }));
+  } catch {}
+  return s;
+}
+
+/** Usuário logado e restaurante ativo (primeiro vínculo do usuário). Null enquanto carrega. */
+export function useSessao(): Sessao | null {
+  const [sessao, setSessao] = useState(atual);
+  useEffect(() => {
+    if (atual) return;
+    carregando ??= buscar()
+      .then((s) => (atual = s))
+      .finally(() => (carregando = null));
+    let vivo = true;
+    carregando.then((s) => {
+      if (!vivo) return;
+      if (s) setSessao(s);
+      // Login venceu nesta aba: volta para a tela de entrada
+      else window.location.assign("/login");
+    });
+    return () => {
+      vivo = false;
+    };
+  }, []);
+  return sessao;
+}
+
+/** Esquece a sessão guardada (ex.: depois de entrar com outro usuário). */
+export function limparSessao() {
+  atual = supabaseConfigurado ? null : SESSAO_DEMO;
+  try {
+    sessionStorage.removeItem(CHAVE);
+  } catch {}
 }
