@@ -77,6 +77,8 @@ export default function ProdutosPage() {
           { chave: "ativo", rotulo: "Ativo", tipo: "booleano", exibir: (p) => (p.ativo ? <Pilula cor="verde">Ativo</Pilula> : <Pilula>Inativo</Pilula>) },
           { chave: "noDelivery", rotulo: "No delivery", tipo: "booleano" },
           { chave: "porKg", rotulo: "Vendido por quilo (balança)", tipo: "booleano", naTabela: false },
+          { chave: "ncm", rotulo: "NCM (fiscal)", naTabela: false },
+          { chave: "cfop", rotulo: "CFOP (fiscal)", naTabela: false },
           { chave: "precoDelivery", rotulo: "Preço no delivery (opcional)", tipo: "valor", naTabela: false },
           { chave: "descricao", rotulo: "Descrição", naTabela: false },
           { chave: "foto", rotulo: "Foto (endereço da imagem)", naTabela: false },

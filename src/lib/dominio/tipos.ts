@@ -24,6 +24,9 @@ export type Produto = {
   ficha?: { insumoId: Id; qtd: number }[];
   /** Vendido por quilo (lê o peso na balança) */
   porKg?: boolean;
+  /** Fiscal (NFC-e) */
+  ncm?: string;
+  cfop?: string;
 };
 
 export type Bairro = { id: Id; nome: string; taxa: number };
@@ -124,6 +127,20 @@ export type Conta = {
   observacao?: string;
   /** Forma escolhida pelo cliente no cardápio online */
   pagamentoOnline?: FormaPagamentoOnline;
+  /** Pedido do marketplace já pago no app */
+  pagoNoApp?: boolean;
+  nfce?: NotaConsumidor;
+};
+
+export type NotaConsumidor = {
+  status: "processando" | "autorizada" | "erro" | "cancelada";
+  referencia: string;
+  numero?: string;
+  serie?: string;
+  chave?: string;
+  url?: string;
+  mensagem?: string;
+  em: string;
 };
 
 export type Caixa = { id: Id; nome: string };
