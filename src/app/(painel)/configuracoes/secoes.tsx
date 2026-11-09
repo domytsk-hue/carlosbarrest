@@ -83,7 +83,7 @@ function SecaoImpressoras() {
               </Botao>
               {msg[i.id] && <span className="text-[12px] text-mudo">{msg[i.id]}</span>}
             </div>
-            <button onClick={() => set({ impressoras: cfg.impressoras.filter((x) => x.id !== i.id) })} className="justify-self-end text-mudo hover:text-st-cancelado" aria-label="Remover impressora">
+            <button onClick={() => set({ impressoras: cfg.impressoras.filter((x) => x.id !== i.id) })} className="justify-self-end rounded-full p-2 text-mudo hover:text-st-cancelado" aria-label="Remover impressora">
               <Trash2 size={16} />
             </button>
           </li>

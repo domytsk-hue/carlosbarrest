@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import { Menu, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MODULOS } from "@/lib/modulos";
 import { useAtalhos } from "./use-atalhos";
 import { StatusBar } from "./status-bar";
@@ -22,6 +22,18 @@ export function AppShell({ sessao, children }: { sessao: Sessao; children: React
   const pathname = usePathname();
   const [menuAberto, setMenuAberto] = useState(false);
   useAtalhos();
+  // Fecha o menu do celular ao trocar de tela e com a tecla Esc
+  useEffect(() => {
+    setMenuAberto(false);
+  }, [pathname]);
+  useEffect(() => {
+    if (!menuAberto) return;
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuAberto(false);
+    };
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [menuAberto]);
 
   const rapidos = MODULOS.filter((m) => m.rapido);
 

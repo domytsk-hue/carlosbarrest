@@ -1,5 +1,6 @@
 "use client";
 
+import { copiarTexto } from "@/lib/copiar";
 import { Check, Copy } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -43,8 +44,8 @@ export function PixQR({ conta, valor, aoConfirmar, semBotao }: { conta: Conta; v
       <p className="num text-[24px] font-extrabold text-marca">{brl(valor)}</p>
       <QR texto={codigo} tamanho={200} className="mx-auto my-2 overflow-hidden rounded-xl" />
       <button
-        onClick={() => {
-          navigator.clipboard?.writeText(codigo);
+        onClick={async () => {
+          if (!(await copiarTexto(codigo))) return;
           setCopiado(true);
           setTimeout(() => setCopiado(false), 2000);
         }}

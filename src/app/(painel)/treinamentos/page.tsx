@@ -124,10 +124,10 @@ export default function TreinamentosPage() {
                         {passado && <Pilula cor="azul">{(t.presentes ?? []).length} presentes</Pilula>}
                       </div>
                     </div>
-                    <button onClick={() => setEditar(structuredClone(t))} className="p-1 text-mudo hover:text-tinta" aria-label="Editar">
+                    <button onClick={() => setEditar(structuredClone(t))} className="p-2 text-mudo hover:text-tinta" aria-label="Editar">
                       <Pencil size={15} />
                     </button>
-                    <button onClick={() => confirm(`Excluir "${t.titulo}"?`) && excluirTreinamento(t.id)} className="p-1 text-mudo hover:text-st-cancelado" aria-label="Excluir">
+                    <button onClick={() => confirm(`Excluir "${t.titulo}"?`) && excluirTreinamento(t.id)} className="p-2 text-mudo hover:text-st-cancelado" aria-label="Excluir">
                       <Trash2 size={15} />
                     </button>
                   </div>

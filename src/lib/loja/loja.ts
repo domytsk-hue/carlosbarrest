@@ -16,10 +16,10 @@ let estado: Estado | null = null;
 let ultimoGravado: string | null = null;
 const ouvintes = new Set<Ouvinte>();
 
-function carregar(): Estado {
+function carregar(recebido?: string | null): Estado {
   if (typeof window === "undefined") return estadoInicial();
   try {
-    const bruto = localStorage.getItem(CHAVE);
+    const bruto = recebido ?? localStorage.getItem(CHAVE);
     ultimoGravado = bruto;
     if (bruto) {
       const salvo = JSON.parse(bruto) as Estado;
@@ -39,17 +39,84 @@ function salvar(e: Estado) {
 }
 
 export function obterEstado(): Estado {
-  if (!estado) estado = carregar();
+  if (!estado) {
+    estado = carregar();
+    base = estado;
+  }
   return estado;
+}
+
+// ---------------------------------------------------------------------------
+// Sincronização entre abas
+// ---------------------------------------------------------------------------
+// Duas abas podem gravar quase ao mesmo tempo (ex.: duas mesas pedindo pelo
+// QR Code, ou o garçom lançando enquanto o caixa recebe). Quem grava por
+// último apagaria o que a outra acabou de fazer. Para evitar isso, cada aba
+// guarda o último estado que recebeu da outra (a "base") e faz uma mescla de
+// três vias: o que só mudou aqui fica, o que só mudou lá vem, e listas com id
+// (contas, itens, chamados...) são mescladas registro a registro.
+
+let base: Estado | null = null;
+
+type ComId = { id: string };
+const json = (v: unknown) => JSON.stringify(v);
+const ehListaComId = (v: unknown): v is ComId[] =>
+  Array.isArray(v) && v.every((x) => typeof x === "object" && x !== null && typeof (x as ComId).id === "string");
+const ehObjeto = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+
+function mesclarLista(b: ComId[], l: ComId[], r: ComId[]): ComId[] {
+  const B = new Map(b.map((x) => [x.id, x]));
+  const L = new Map(l.map((x) => [x.id, x]));
+  const R = new Set(r.map((x) => x.id));
+  // Criados aqui e que a outra aba ainda não tinha
+  const novos = l.filter((x) => !R.has(x.id) && !B.has(x.id));
+  const res: ComId[] = [];
+  for (const x of r) {
+    const daqui = L.get(x.id);
+    const antes = B.get(x.id);
+    if (daqui) res.push(mesclar(antes, daqui, x) as ComId);
+    // Apagado aqui e não mexido lá: continua apagado
+    else if (!antes || json(antes) !== json(x)) res.push(x);
+  }
+  return [...novos, ...res];
+}
+
+function mesclar(b: unknown, l: unknown, r: unknown): unknown {
+  const jl = json(l);
+  const jr = json(r);
+  if (jl === jr) return r;
+  const jb = json(b);
+  if (jl === jb) return r; // só a outra aba mudou
+  if (jr === jb) return l; // só esta aba mudou
+  if (ehListaComId(l) && ehListaComId(r)) return mesclarLista(ehListaComId(b) ? b : [], l, r);
+  if (ehObjeto(l) && ehObjeto(r)) {
+    const bo = ehObjeto(b) ? b : {};
+    const res: Record<string, unknown> = { ...r };
+    for (const k of new Set([...Object.keys(l), ...Object.keys(r)])) res[k] = mesclar(bo[k], l[k], r[k]);
+    return res;
+  }
+  // Os dois mudaram o mesmo valor simples: vale o mais recente (o da outra aba)
+  return r;
+}
+
+/** Junta o estado gravado pela outra aba com o que mudou nesta. */
+function sincronizar(recebido?: string | null) {
+  const local = estado;
+  // Usa o texto que veio no evento: a cópia local do armazenamento pode ainda
+  // não ter a gravação da outra aba
+  const remoto = carregar(recebido);
+  estado = local && base ? (mesclar(base, local, remoto) as Estado) : remoto;
+  base = remoto;
+  if (json(estado) !== ultimoGravado) salvar(estado);
 }
 
 export function atualizar(fn: (e: Estado) => Estado) {
   // Se outra aba gravou e o evento "storage" ainda não chegou, parte do que
-  // está gravado, para não sobrescrever o pedido que ela acabou de lançar.
+  // está gravado (juntando o que é novo aqui).
   if (estado && typeof window !== "undefined") {
     try {
       const bruto = localStorage.getItem(CHAVE);
-      if (bruto !== null && bruto !== ultimoGravado) estado = carregar();
+      if (bruto !== null && bruto !== ultimoGravado) sincronizar();
     } catch {}
   }
   estado = fn(obterEstado());
@@ -57,17 +124,22 @@ export function atualizar(fn: (e: Estado) => Estado) {
   ouvintes.forEach((o) => o());
 }
 
+let escutandoOutrasAbas = false;
+function escutarOutrasAbas() {
+  if (escutandoOutrasAbas || typeof window === "undefined") return;
+  escutandoOutrasAbas = true;
+  window.addEventListener("storage", (ev) => {
+    if (ev.key !== CHAVE || ev.newValue === null || ev.newValue === ultimoGravado) return;
+    sincronizar(ev.newValue);
+    ouvintes.forEach((x) => x());
+  });
+}
+
 function inscrever(o: Ouvinte) {
   ouvintes.add(o);
-  const aoArmazenar = (ev: StorageEvent) => {
-    if (ev.key !== CHAVE) return;
-    estado = carregar();
-    ouvintes.forEach((x) => x());
-  };
-  window.addEventListener("storage", aoArmazenar);
+  escutarOutrasAbas();
   return () => {
     ouvintes.delete(o);
-    window.removeEventListener("storage", aoArmazenar);
   };
 }
 
