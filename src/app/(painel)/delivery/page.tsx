@@ -1,5 +1,6 @@
 "use client";
 
+import { copiarTexto } from "@/lib/copiar";
 import clsx from "clsx";
 import { Check, Copy, ExternalLink, QrCode, ShoppingCart, Store, Truck } from "lucide-react";
 import Link from "next/link";
@@ -128,8 +129,8 @@ export default function DeliveryPage() {
               <Botao
                 variante="secundario"
                 tamanho="sm"
-                onClick={() => {
-                  navigator.clipboard?.writeText(link);
+                onClick={async () => {
+                  if (!(await copiarTexto(link))) return;
                   setCopiado(true);
                   setTimeout(() => setCopiado(false), 2000);
                 }}

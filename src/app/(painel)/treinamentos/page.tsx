@@ -28,7 +28,8 @@ export default function TreinamentosPage() {
   const trilha = f ? MATERIAIS[f.funcao] : [];
   const feitos = f ? (concluidos[f.id] ?? []) : [];
   const pct = trilha.length ? Math.round((trilha.filter((m) => feitos.includes(m.id)).length / trilha.length) * 100) : 0;
-  const agora = new Date().toISOString().slice(0, 16);
+  // Hora local no mesmo formato do campo (AAAA-MM-DDTHH:mm), não em UTC
+  const agora = new Date().toLocaleString("sv-SE").replace(" ", "T").slice(0, 16);
   const proximos = [...treinamentos].sort((a, b) => a.quando.localeCompare(b.quando));
 
   return (
@@ -36,7 +37,7 @@ export default function TreinamentosPage() {
       <Titulo
         sub="Trilha de aprendizado por função e agenda de treinamentos ao vivo"
         acoes={
-          <Botao onClick={() => setEditar({ titulo: "", descricao: "", quando: `${new Date().toISOString().slice(0, 10)}T15:00`, duracaoMin: 60, funcoes: ["garcom"] })}>
+          <Botao onClick={() => setEditar({ titulo: "", descricao: "", quando: `${new Date().toLocaleDateString("sv-SE")}T15:00`, duracaoMin: 60, funcoes: ["garcom"] })}>
             <Plus size={16} /> Agendar treinamento
           </Botao>
         }
@@ -123,10 +124,10 @@ export default function TreinamentosPage() {
                         {passado && <Pilula cor="azul">{(t.presentes ?? []).length} presentes</Pilula>}
                       </div>
                     </div>
-                    <button onClick={() => setEditar(structuredClone(t))} className="p-1 text-mudo hover:text-tinta" aria-label="Editar">
+                    <button onClick={() => setEditar(structuredClone(t))} className="p-2 text-mudo hover:text-tinta" aria-label="Editar">
                       <Pencil size={15} />
                     </button>
-                    <button onClick={() => confirm(`Excluir "${t.titulo}"?`) && excluirTreinamento(t.id)} className="p-1 text-mudo hover:text-st-cancelado" aria-label="Excluir">
+                    <button onClick={() => confirm(`Excluir "${t.titulo}"?`) && excluirTreinamento(t.id)} className="p-2 text-mudo hover:text-st-cancelado" aria-label="Excluir">
                       <Trash2 size={15} />
                     </button>
                   </div>

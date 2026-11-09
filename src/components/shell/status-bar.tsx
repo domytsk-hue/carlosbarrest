@@ -39,7 +39,12 @@ export function StatusBar({ sessao }: { sessao: Sessao }) {
       </span>
       <span className="flex min-w-0 items-center gap-1.5 truncate">
         <Wallet size={14} />
-        {caixaNome ?? "Nenhum caixa aberto"}
+        {caixaNome ?? (
+          <>
+            <span className="sm:hidden">Sem caixa</span>
+            <span className="hidden sm:inline">Nenhum caixa aberto</span>
+          </>
+        )}
       </span>
       <span className="ml-auto hidden truncate sm:block">{sessao.restaurante}</span>
       {sessao.demo && <span className="ml-auto sm:ml-0 rounded-full bg-[#FDF0D6] px-2 py-0.5 text-[11px] font-bold text-[#8A5A00]">Demonstração</span>}

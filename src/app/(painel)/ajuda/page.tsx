@@ -68,9 +68,9 @@ export default function AjudaPage() {
           )}
         </Cartao>
       ) : (
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {lista.map((a) => (
-            <button key={a.id} onClick={() => setAberto(a)} className="flex items-center gap-3 rounded-2xl bg-card p-4 text-left shadow-card hover:ring-2 hover:ring-rosado">
+            <button key={a.id} onClick={() => setAberto(a)} className="flex min-w-0 items-center gap-3 rounded-2xl bg-card p-4 text-left shadow-card hover:ring-2 hover:ring-rosado">
               <div className="min-w-0 flex-1">
                 <p className="font-bold">{a.titulo}</p>
                 <p className="truncate text-[12.5px] text-mudo">

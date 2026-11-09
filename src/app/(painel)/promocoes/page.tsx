@@ -100,10 +100,10 @@ export default function PromocoesPage() {
               </td>
               <td className="num px-3 py-2.5 text-right">{p.tipo === "happyhour" ? "—" : `${p.tipo === "cupom" ? "−" : ""}${brl(u?.valor ?? 0)}`}</td>
               <td className="px-3 py-2.5 text-right">
-                <button onClick={() => setEditar(structuredClone(p))} className="p-1.5 text-mudo hover:text-tinta" aria-label="Editar">
+                <button onClick={() => setEditar(structuredClone(p))} className="p-2 text-mudo hover:text-tinta" aria-label="Editar">
                   <Pencil size={16} />
                 </button>
-                <button onClick={() => confirm(`Excluir "${p.nome}"?`) && excluirPromocao(p.id)} className="p-1.5 text-mudo hover:text-st-cancelado" aria-label="Excluir">
+                <button onClick={() => confirm(`Excluir "${p.nome}"?`) && excluirPromocao(p.id)} className="p-2 text-mudo hover:text-st-cancelado" aria-label="Excluir">
                   <Trash2 size={16} />
                 </button>
               </td>
