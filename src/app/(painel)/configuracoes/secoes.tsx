@@ -1,18 +1,20 @@
 "use client";
 
 import clsx from "clsx";
-import { CreditCard, FileText, Plus, Printer, ShoppingCart, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { CreditCard, FileText, PackageOpen, Plus, Printer, ShoppingCart, Smartphone, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Botao, Campo, Cartao, Entrada, Pilula, Selecao } from "@/components/ui";
 import { chamarAgente } from "@/lib/integracoes/agente";
 import { normalizarAiqfome, normalizarIfood, pedidoAiqfomeExemplo, pedidoIfoodExemplo } from "@/lib/integracoes/marketplace";
-import { salvarConfig } from "@/lib/loja/acoes";
+import { dataCurta, hora } from "@/lib/dominio/calculos";
+import { idDoAparelho } from "@/lib/dispositivo";
+import { removerDispositivo, salvarConfig, salvarDispositivo } from "@/lib/loja/acoes";
 import { receberPedidoMarketplace } from "@/lib/loja/acoes-integracoes";
 import type { Config, Impressora } from "@/lib/loja/estado";
 import { obterEstado, useLoja } from "@/lib/loja/loja";
 
 /** Seções de configuração acrescentadas pelas fases seguintes (impressoras, integrações...). */
-export const SECOES_CONFIG: React.ComponentType[] = [SecaoImpressoras, SecaoMaquininha, SecaoFiscal, SecaoMarketplaces];
+export const SECOES_CONFIG: React.ComponentType[] = [SecaoImpressoras, SecaoDispositivos, SecaoEstoque, SecaoMaquininha, SecaoFiscal, SecaoMarketplaces];
 
 const Titulo = ({ i: I, children }: { i: React.ElementType; children: React.ReactNode }) => (
   <span className="flex items-center gap-2">
@@ -62,7 +64,8 @@ function SecaoImpressoras() {
         {cfg.impressoras.map((i) => (
           <li key={i.id} className="grid gap-2 rounded-2xl border border-linha p-3 sm:grid-cols-[1fr_auto_auto] sm:items-center">
             <div className="flex flex-wrap items-center gap-2">
-              <Entrada defaultValue={i.nome} onBlur={(e) => setImp(i.id, { nome: e.target.value.trim().toLowerCase() })} className="max-w-[160px] py-1.5" aria-label="Nome no agente" />
+              <Entrada defaultValue={i.nome} onBlur={(e) => setImp(i.id, { nome: e.target.value.trim().toLowerCase() })} className="max-w-[140px] py-1.5" aria-label="Nome no agente" />
+              <Entrada defaultValue={i.local ?? ""} onBlur={(e) => setImp(i.id, { local: e.target.value.trim() })} placeholder="Onde fica / conexão" className="max-w-[200px] py-1.5" aria-label="Onde fica" />
               {(["caixa", "cozinha", "bar"] as const).map((s) => (
                 <button
                   key={s}
@@ -78,6 +81,9 @@ function SecaoImpressoras() {
               </Selecao>
             </div>
             <div className="flex items-center gap-2">
+              <button onClick={() => setImp(i.id, { ativa: i.ativa === false })} className="shrink-0">
+                {i.ativa === false ? <Pilula>Desligada</Pilula> : <Pilula cor="verde">Em uso</Pilula>}
+              </button>
               <Botao variante="secundario" tamanho="sm" onClick={() => testar(i.id, () => chamarAgente(cfg.agenteUrl, "testar", { impressora: i.nome }))}>
                 Testar
               </Botao>
@@ -89,10 +95,68 @@ function SecaoImpressoras() {
           </li>
         ))}
       </ul>
-      <Botao variante="fantasma" tamanho="sm" className="mt-2" onClick={() => set({ impressoras: [...cfg.impressoras, { id: "imp" + Date.now(), nome: "nova", setores: [], colunas: 48 }] })}>
+      <Botao variante="fantasma" tamanho="sm" className="mt-2" onClick={() => set({ impressoras: [...cfg.impressoras, { id: "imp" + Date.now(), nome: "nova", setores: [], colunas: 48, ativa: true }] })}>
         <Plus size={15} /> Adicionar impressora
       </Botao>
       <p className="mt-1 text-[12px] text-mudo">O nome de cada impressora precisa ser igual ao do arquivo impressoras.json do agente, onde fica o IP.</p>
+    </Cartao>
+  );
+}
+
+/** Aparelhos que usam o sistema (computador do caixa, celular de cada garçom) e a autorização de cada um. */
+function SecaoDispositivos() {
+  const exigir = useLoja((e) => e.config.exigirAutorizacao);
+  const dispositivos = useLoja((e) => e.dispositivos ?? []);
+  const funcionarios = useLoja((e) => e.funcionarios.filter((f) => f.ativo));
+  const [meu, setMeu] = useState("");
+  useEffect(() => setMeu(idDoAparelho()), []);
+
+  return (
+    <Cartao titulo={<Titulo i={Smartphone}>Dispositivos</Titulo>}>
+      <Chave rotulo="Só aparelhos autorizados abrem o app do garçom" ligado={exigir} aoMudar={(v) => salvarConfig({ exigirAutorizacao: v }, v ? "Ligou a autorização de dispositivos" : "Desligou a autorização de dispositivos")} />
+      <p className="mt-1 text-[12px] text-mudo">
+        Cada aparelho que abre o sistema aparece aqui. No celular do garçom, abra /garcom: ele mostra um código de 4 letras. Dê um nome, ligue ao garçom e autorize. Aparelho não autorizado vê só a tela de bloqueio.
+      </p>
+      <ul className="mt-3 grid gap-2">
+        {dispositivos.map((d) => (
+          <li key={d.id} className="grid gap-2 rounded-2xl border border-linha p-3 sm:grid-cols-[auto_1fr_auto_auto] sm:items-center">
+            <span className="num w-14 text-center text-[15px] font-extrabold tracking-widest">{d.id.slice(-4).toUpperCase()}</span>
+            <div className="grid gap-1.5 sm:grid-cols-2">
+              <Entrada defaultValue={d.nome} onBlur={(e) => salvarDispositivo(d.id, { nome: e.target.value.trim() || d.nome })} className="py-1.5" aria-label="Nome do aparelho" />
+              <Selecao value={d.funcionarioId ?? ""} onChange={(e) => salvarDispositivo(d.id, { funcionarioId: e.target.value || undefined })} className="py-1.5" aria-label="Funcionário">
+                <option value="">Sem funcionário</option>
+                {funcionarios.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.nome}
+                  </option>
+                ))}
+              </Selecao>
+              <span className="text-[11.5px] text-mudo sm:col-span-2">
+                {d.descricao} {d.ultimoAcesso && `· último acesso ${dataCurta(d.ultimoAcesso)} ${hora(d.ultimoAcesso)}`} {d.id === meu && <b className="text-acao">· este aparelho</b>}
+              </span>
+            </div>
+            <button onClick={() => salvarDispositivo(d.id, { autorizado: !d.autorizado })} className="justify-self-start">
+              {d.autorizado ? <Pilula cor="verde">Autorizado</Pilula> : <Pilula cor="amarela">Aguardando</Pilula>}
+            </button>
+            <button onClick={() => confirm(`Remover ${d.nome} da lista?`) && removerDispositivo(d.id)} className="justify-self-end rounded-full p-2 text-mudo hover:text-st-cancelado" aria-label="Remover aparelho">
+              <Trash2 size={16} />
+            </button>
+          </li>
+        ))}
+        {!dispositivos.length && <li className="py-4 text-center text-[13px] text-mudo">Nenhum aparelho registrado ainda.</li>}
+      </ul>
+      <p className="mt-2 text-[12px] text-mudo">Toque em Aguardando/Autorizado para mudar. A forma definitiva de vincular os aparelhos ainda vai ser combinada.</p>
+    </Cartao>
+  );
+}
+
+/** Estoque desligado até o restaurante começar a usar. Religar não apaga nem recalcula nada. */
+function SecaoEstoque() {
+  const ativo = useLoja((e) => e.config.estoqueAtivo);
+  return (
+    <Cartao titulo={<Titulo i={PackageOpen}>Estoque</Titulo>}>
+      <Chave rotulo="Controle de estoque ligado" ligado={ativo} aoMudar={(v) => salvarConfig({ estoqueAtivo: v }, v ? "Ligou o estoque" : "Desligou o estoque")} />
+      <p className="mt-1 text-[12px] text-mudo">Desligado até março. Enquanto estiver desligado, a aba Estoque fica fechada, as vendas não dão baixa em insumos e não aparecem avisos de estoque. Nenhum dado foi apagado.</p>
     </Cartao>
   );
 }
@@ -155,7 +219,7 @@ function SecaoFiscal() {
         </div>
       </div>
       <p className="mt-2 text-[12px] text-mudo">
-        O certificado A1 e o CSC da SEFAZ-BA são cadastrados no painel do Focus NFe; o token fica no servidor (FOCUS_NFE_TOKEN). NCM e CFOP de cada produto ficam em Produtos (padrão 21069090 / 5102). Confirme a tributação com o contador antes de ir para produção.
+        O certificado A1 e o CSC da SEFAZ-BA são cadastrados no painel do Focus NFe; o token fica no servidor (FOCUS_NFE_TOKEN). O cadastro de produtos não pede NCM nem CFOP (uso interno do restaurante); se um dia emitir nota, valem os padrões 21069090 / 5102. Confirme a tributação com o contador antes de ir para produção.
       </p>
     </Cartao>
   );

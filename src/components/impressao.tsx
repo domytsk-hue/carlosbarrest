@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { rotuloComissao } from "@/lib/dominio/rotulos";
 import { brl, hora, itensValidos, pago, restante, subtotal, total, totalItem, valorServico } from "@/lib/dominio/calculos";
 import type { Conta } from "@/lib/dominio/tipos";
 import { imprimirNoAgente, rotuloConta as rotulo, type TrabalhoImpressao } from "@/lib/integracoes/agente";
@@ -100,9 +101,9 @@ export function AreaImpressao() {
               <span>Subtotal</span>
               <span>{brl(subtotal(t.conta))}</span>
             </p>
-            {t.conta.servicoPct > 0 && (
+            {(t.conta.servicoPct > 0 || t.conta.servicoValor !== undefined) && (
               <p className="l">
-                <span>Serviço {t.conta.servicoPct}%</span>
+                <span>{rotuloComissao(t.conta)}</span>
                 <span>{brl(valorServico(t.conta))}</span>
               </p>
             )}

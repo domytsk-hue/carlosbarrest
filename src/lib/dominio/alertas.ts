@@ -39,7 +39,7 @@ export function calcularAlertas(e: Estado, agora = Date.now()): Alerta[] {
     }
   }
   const s = saldos(e.movimentosEstoque ?? []);
-  const baixos = (e.insumos ?? []).filter((i) => i.ativo && (s.get(i.id) ?? 0) < i.estoqueMinimo);
+  const baixos = (e.config.estoqueAtivo ? (e.insumos ?? []) : []).filter((i) => i.ativo && (s.get(i.id) ?? 0) < i.estoqueMinimo);
   if (baixos.length)
     a.push({ tipo: "estoque", texto: baixos.length === 1 ? `${baixos[0].nome} está abaixo do estoque mínimo` : `${baixos.length} insumos abaixo do mínimo: ${baixos.slice(0, 3).map((i) => i.nome).join(", ")}${baixos.length > 3 ? "…" : ""}`, href: "/estoque" });
   const hoje = diaLocal();

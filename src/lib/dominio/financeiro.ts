@@ -104,12 +104,21 @@ export function dre(
 /** Comissões: garçom recebe % da taxa de serviço; entregador recebe R$ por entrega. */
 export function comissoes(contas: Conta[], funcionarios: Funcionario[], p: Periodo) {
   const vendas = vendasNoPeriodo(contas, p);
-  const garcons = porAtendente(vendas, funcionarios)
-    .map((a) => {
-      const f = funcionarios.find((x) => x.id === a.id);
-      return f && f.funcao !== "entregador" && f.comissao > 0 ? { id: f.id, nome: f.nome, base: a.servico, regra: `${f.comissao}% do serviço`, valor: arred((a.servico * f.comissao) / 100), qtd: a.qtd } : null;
+  const atendentes = porAtendente(vendas, funcionarios);
+  // Comissão individual: % da comissão que o cliente pagou nos itens do funcionário,
+  // ou valor fixo por atendimento (conta aberta por ele)
+  const garcons = funcionarios
+    .filter((f) => f.funcao !== "entregador" && f.comissao > 0)
+    .map((f) => {
+      const a = atendentes.find((x) => x.id === f.id);
+      if (f.comissaoTipo === "valor") {
+        const n = vendas.filter((c) => c.atendenteId === f.id).length;
+        return { id: f.id, nome: f.nome, base: n, regra: `R$ ${f.comissao.toFixed(2).replace(".", ",")} por atendimento`, valor: arred(n * f.comissao), qtd: n };
+      }
+      if (!a) return null;
+      return { id: f.id, nome: f.nome, base: a.servico, regra: `${f.comissao}% da comissão paga`, valor: arred((a.servico * f.comissao) / 100), qtd: a.qtd };
     })
-    .filter(Boolean) as { id: string; nome: string; base: number; regra: string; valor: number; qtd: number }[];
+    .filter((x): x is { id: string; nome: string; base: number; regra: string; valor: number; qtd: number } => !!x && x.qtd > 0);
   const entregadores = funcionarios
     .filter((f) => f.funcao === "entregador")
     .map((f) => {

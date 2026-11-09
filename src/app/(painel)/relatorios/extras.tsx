@@ -10,13 +10,13 @@ import { porProduto, vendasNoPeriodo, type Periodo } from "@/lib/dominio/indicad
 import { useLoja } from "@/lib/loja/loja";
 
 /** Relatórios acrescentados pelas fases seguintes (estoque, financeiro, DRE...). */
-export const RELATORIOS_EXTRAS: { nome: string; Componente: (p: { periodo: Periodo }) => React.ReactNode }[] = [
+export const RELATORIOS_EXTRAS: { nome: string; Componente: (p: { periodo: Periodo }) => React.ReactNode; estoque?: boolean }[] = [
   { nome: "DRE", Componente: Dre },
   { nome: "Contas pagas e recebidas", Componente: ContasPagas },
   { nome: "Contas em aberto", Componente: ContasAbertas },
   { nome: "Comissões", Componente: Comissoes },
-  { nome: "Posição do estoque", Componente: PosicaoEstoque },
-  { nome: "Consumo de insumos", Componente: ConsumoInsumos },
+  { nome: "Posição do estoque", Componente: PosicaoEstoque, estoque: true },
+  { nome: "Consumo de insumos", Componente: ConsumoInsumos, estoque: true },
   { nome: "CMV por produto", Componente: CmvProduto },
 ];
 
@@ -78,7 +78,7 @@ function Comissoes({ periodo }: { periodo: Periodo }) {
       <p className="text-right text-[14px] font-extrabold">
         Total a pagar: <span className="num">{brl(c.total)}</span>
       </p>
-      <p className="text-[12px] text-mudo">Garçom: percentual sobre a taxa de serviço dos itens que lançou. Entregador: valor fixo por entrega concluída. Ajuste as regras em Cadastros › Funcionários.</p>
+      <p className="text-[12px] text-mudo">Garçom: percentual da comissão que o cliente pagou nos itens que lançou, ou valor fixo por atendimento. Entregador: valor fixo por entrega concluída. Ajuste a comissão de cada um em Funcionários.</p>
     </div>
   );
 }

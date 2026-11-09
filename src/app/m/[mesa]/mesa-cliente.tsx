@@ -5,6 +5,7 @@ import { BellRing, Check, ChefHat, Receipt, Send, UtensilsCrossed } from "lucide
 import { useState } from "react";
 import { BarraCarrinho, CabecalhoCliente, CardapioCliente, ListaCarrinho, somaCarrinho, type LinhaCarrinho } from "@/components/cliente/cardapio-cliente";
 import { PixQR } from "@/components/pedido/pagamento-extra";
+import { rotuloComissao } from "@/lib/dominio/rotulos";
 import { brl, itensValidos, pago, restante, subtotal, total, valorServico } from "@/lib/dominio/calculos";
 import type { StatusPreparo } from "@/lib/dominio/tipos";
 import { chamar, contaDaMesa, pedidoQrCode } from "@/lib/loja/acoes";
@@ -121,7 +122,7 @@ export function MesaCliente({ numero }: { numero: number }) {
                 </ul>
                 <dl className="mt-3 space-y-1 border-t border-linha pt-3 text-[13.5px]">
                   <Linha r="Subtotal" v={subtotal(conta)} />
-                  {conta.servicoPct > 0 && <Linha r={`Serviço (${conta.servicoPct}%) opcional`} v={valorServico(conta)} />}
+                  {(conta.servicoPct > 0 || conta.servicoValor !== undefined) && <Linha r={`${rotuloComissao(conta)} opcional`} v={valorServico(conta)} />}
                   {conta.desconto > 0 && <Linha r="Desconto" v={-conta.desconto} />}
                   <Linha r="Total" v={total(conta)} forte />
                   {pago(conta) > 0 && <Linha r="Já pago" v={-pago(conta)} />}

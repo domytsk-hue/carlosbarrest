@@ -24,7 +24,8 @@ export type Produto = {
   ficha?: { insumoId: Id; qtd: number }[];
   /** Vendido por quilo (lê o peso na balança) */
   porKg?: boolean;
-  /** Fiscal (NFC-e) */
+  /** Campos fiscais antigos (NFC-e). Não aparecem mais no cadastro: o
+   * restaurante usa o sistema só para controle interno. */
   ncm?: string;
   cfop?: string;
 };
@@ -36,6 +37,7 @@ export type Endereco = { rua: string; numero: string; bairroId?: Id; complemento
 export type Cliente = {
   id: Id;
   nome: string;
+  /** Opcional: pode ficar vazio (ex.: cliente do fiado só com o nome) */
   telefone: string;
   enderecos: Endereco[];
   /** Saldo pré-pago (positivo) ou fiado em aberto (negativo) */
@@ -49,8 +51,10 @@ export type Funcionario = {
   id: Id;
   nome: string;
   funcao: Funcao;
-  /** % de comissão sobre a taxa de serviço (garçom) ou valor por entrega (entregador) */
+  /** Comissão individual: % da comissão (taxa de serviço) que o cliente pagou
+   * nos atendimentos dele, ou valor fixo por atendimento (ver comissaoTipo). */
   comissao: number;
+  comissaoTipo?: "percentual" | "valor";
   ativo: boolean;
 };
 
@@ -58,7 +62,11 @@ export type TipoPagamento = "dinheiro" | "pix" | "credito" | "debito" | "voucher
 
 export type FormaPagamento = { id: Id; nome: string; tipo: TipoPagamento; taxa: number; prazoDias: number; ativo: boolean };
 
-export type Mesa = { id: Id; numero: number; area: string; lugares: number };
+/** Onde a mesa está hoje. Muda quando o salão é rearrumado (ex.: fim de semana). */
+export type Localizacao = "Salão" | "Varanda" | "Rua";
+export const LOCALIZACOES: Localizacao[] = ["Salão", "Varanda", "Rua"];
+
+export type Mesa = { id: Id; numero: number; area: Localizacao | string; lugares: number };
 
 export type Canal = "mesa" | "comanda" | "balcao" | "pdv" | "entrega" | "delivery" | "ifood" | "aiqfome" | "qrcode";
 
@@ -115,6 +123,9 @@ export type Conta = {
   desconto: number;
   /** % de taxa de serviço (0 desliga) */
   servicoPct: number;
+  /** Comissão em reais escolhida pelo cliente no recebimento (integral,
+   * parcial ou zero). Quando existe, vale no lugar do percentual. */
+  servicoValor?: number;
   couvert: number;
   taxaEntrega: number;
   abertaEm: string;
@@ -130,6 +141,8 @@ export type Conta = {
   /** Pedido do marketplace já pago no app */
   pagoNoApp?: boolean;
   nfce?: NotaConsumidor;
+  /** Pedido para retirada já entregue ao cliente no balcão */
+  retiradoEm?: string;
 };
 
 export type NotaConsumidor = {
@@ -160,6 +173,39 @@ export type SessaoCaixa = {
   fechadaEm?: string;
   /** Valores contados no fechamento, por forma de pagamento */
   contado?: Record<Id, number>;
+  /** Abertura: o operador conferiu o dinheiro do fundo de troco */
+  fundoConferido?: boolean;
+  /** Fechamento: faturamento e comissão apurados, para o relatório do dia */
+  apuracao?: { faturamento: number; comissao: number; fiadoVendido: number; fiadoRecebido: number };
+};
+
+/** Movimento do fiado de um cliente: compra lançada (aumenta a dívida) ou pagamento (abate). */
+export type MovFiado = {
+  id: Id;
+  clienteId: Id;
+  tipo: "lancamento" | "pagamento";
+  valor: number;
+  em: string;
+  /** De onde veio: "Mesa 12 · conta 45", "Lançamento manual"... */
+  origem: string;
+  contaId?: Id;
+  /** Pagamento: forma usada e caixa onde entrou */
+  formaId?: Id;
+  sessaoCaixaId?: Id;
+  obs?: string;
+  usuario?: string;
+};
+
+/** Aparelho que usa o sistema (computador do caixa, celular de cada garçom). */
+export type Dispositivo = {
+  id: Id;
+  nome: string;
+  funcionarioId?: Id;
+  autorizado: boolean;
+  criadoEm: string;
+  ultimoAcesso?: string;
+  /** Navegador/sistema, para ajudar a reconhecer o aparelho */
+  descricao?: string;
 };
 
 export type Auditoria = { id: Id; em: string; usuario: string; acao: string; detalhes?: string };

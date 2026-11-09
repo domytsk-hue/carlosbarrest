@@ -4,6 +4,7 @@ import clsx from "clsx";
 import { useState } from "react";
 import { Botao, Cartao, Entrada, Titulo } from "@/components/ui";
 import { resumoSessao } from "@/lib/dominio/caixa";
+import { saldoFiado } from "@/lib/dominio/fiado";
 import { brl, dataCurta, diaLocal, hora, total } from "@/lib/dominio/calculos";
 import { diasAtras, porAtendente, porCanal, porDia, porForma, porProduto, ROTULO_CANAL, somaVendas, vendasNoPeriodo } from "@/lib/dominio/indicadores";
 import { useLoja } from "@/lib/loja/loja";
@@ -16,7 +17,7 @@ export default function RelatoriosPage() {
   const e = useLoja((x) => x);
   const [de, setDe] = useState(diasAtras(6));
   const [ate, setAte] = useState(diaLocal());
-  const nomes = [...BASE, ...RELATORIOS_EXTRAS.map((r) => r.nome)];
+  const nomes = [...BASE, ...RELATORIOS_EXTRAS.filter((r) => !r.estoque || e.config.estoqueAtivo).map((r) => r.nome)];
   const [rel, setRel] = useState<string>(nomes[0]);
   const p = { de, ate };
   const vendas = vendasNoPeriodo(e.contas, p);
@@ -110,13 +111,13 @@ export default function RelatoriosPage() {
             />
           ) : rel === "Movimentação do caixa" ? (
             <Rel
-              cab={["Abertura", "Caixa", "Operador", "Vendas", "Suprimentos", "Sangrias", "Despesas", "Repasses"]}
+              cab={["Abertura", "Caixa", "Operador", "Fundo de troco", "Faturamento", "Comissão arrecadada", "Fiado recebido", "Suprimentos", "Sangrias", "Despesas", "Repasses"]}
               nome="movimentacao-caixa"
               linhas={e.sessoesCaixa
                 .filter((s) => diaLocal(new Date(s.abertaEm)) >= de && diaLocal(new Date(s.abertaEm)) <= ate)
                 .map((s) => {
-                  const r = resumoSessao(s, e.contas, e.formasPagamento);
-                  return [`${dataCurta(s.abertaEm)} ${hora(s.abertaEm)}`, e.caixas.find((c) => c.id === s.caixaId)?.nome ?? "", s.operadorNome, r.vendas, r.suprimentos, r.sangrias, r.despesas, r.repasses];
+                  const r = resumoSessao(s, e.contas, e.formasPagamento, e.fiado);
+                  return [`${dataCurta(s.abertaEm)} ${hora(s.abertaEm)}`, e.caixas.find((c) => c.id === s.caixaId)?.nome ?? "", s.operadorNome, s.fundo, r.vendas, r.comissao, r.fiadoRecebido, r.suprimentos, r.sangrias, r.despesas, r.repasses];
                 })}
             />
           ) : rel === "Entregas por entregador" ? (
@@ -132,11 +133,11 @@ export default function RelatoriosPage() {
             />
           ) : rel === "Clientes" ? (
             <Rel
-              cab={["Cliente", "Telefone", "Pedidos no período", "Gasto no período", "Crédito/fiado"]}
+              cab={["Cliente", "Telefone", "Pedidos no período", "Gasto no período", "Saldo do fiado"]}
               nome="clientes"
               linhas={e.clientes.map((c) => {
                 const l = vendas.filter((v) => v.clienteId === c.id);
-                return [c.nome, c.telefone, l.length, somaVendas(l), c.credito];
+                return [c.nome, c.telefone, l.length, somaVendas(l), saldoFiado(e.fiado ?? [], c.id)];
               })}
             />
           ) : (

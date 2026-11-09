@@ -6,12 +6,15 @@ import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import { Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { descreverAparelho, idDoAparelho } from "@/lib/dispositivo";
+import { registrarDispositivo } from "@/lib/loja/acoes";
 import { MODULOS } from "@/lib/modulos";
 import { useAtalhos } from "./use-atalhos";
 import { StatusBar } from "./status-bar";
 import { SupportButton } from "./support-button";
 import { ThemeToggle } from "./theme-toggle";
 import { AreaImpressao } from "../impressao";
+import { AberturaCaixa } from "./abertura-caixa";
 
 function ativo(pathname: string, slug: string) {
   return slug === "" ? pathname === "/" : pathname === "/" + slug || pathname.startsWith("/" + slug + "/");
@@ -21,6 +24,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [menuAberto, setMenuAberto] = useState(false);
   useAtalhos();
+  // Anota este aparelho na lista de dispositivos (Configurações → Dispositivos)
+  useEffect(() => {
+    const id = idDoAparelho();
+    if (id) registrarDispositivo(id, descreverAparelho());
+  }, []);
   // Fecha o menu do celular ao trocar de tela e com a tecla Esc
   useEffect(() => {
     setMenuAberto(false);
@@ -62,13 +70,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 key={m.slug}
                 href={"/" + m.slug}
                 onClick={() => setMenuAberto(false)}
+                title={m.desabilitado}
                 className={clsx(
                   "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13.5px] font-medium transition-colors",
                   on ? "bg-rosado text-acao font-semibold" : "text-tinta hover:bg-secundario/60",
+                  m.desabilitado && !on && "opacity-50",
                 )}
               >
                 <Icone size={19} strokeWidth={on ? 2.3 : 1.8} />
                 <span className="flex-1">{m.rotulo}</span>
+                {m.desabilitado && <span className="rounded-full bg-secundario px-2 py-0.5 text-[10px] font-semibold text-mudo">desligado</span>}
                 {m.atalho && <kbd className="text-[10.5px] font-medium text-mudo">{m.atalho}</kbd>}
               </Link>
             );
@@ -115,6 +126,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <StatusBar />
       </div>
 
+      <AberturaCaixa />
       <SupportButton />
       <AreaImpressao />
     </div>

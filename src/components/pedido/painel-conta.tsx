@@ -10,6 +10,8 @@ import {
   HandPlatter,
   Layers,
   Merge,
+  MessageSquareText,
+  MoveRight,
   Plus,
   Printer,
   ReceiptText,
@@ -17,20 +19,23 @@ import {
   Split,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { brl, duracao, hora, itensValidos, pago, restante, subtotal, total, totalItem, valorServico } from "@/lib/dominio/calculos";
+import { nomeConta, rotuloComissao, rotuloMesa } from "@/lib/dominio/rotulos";
 import type { Conta } from "@/lib/dominio/tipos";
 import {
   agruparItens,
   aplicarDesconto,
   cancelarConta,
   cancelarItem,
+  definirObsItem,
   definirServico,
   desagruparItens,
   juntarContas,
   pedirConta,
   reabrirConta,
   transferirItens,
+  transferirMesa,
 } from "@/lib/loja/acoes";
 import { useLoja } from "@/lib/loja/loja";
 import { BotaoNfce } from "./nfce";
@@ -39,26 +44,7 @@ import { Acao, Botao, EntradaValor, Entrada, Modal, Pilula, Selecao, useRelogio 
 import { Lancador } from "./lancador";
 import { PagamentoModal } from "./pagamento";
 
-export function nomeConta(c: Conta, mesas: { id: string; numero: number }[]) {
-  switch (c.canal) {
-    case "mesa":
-    case "qrcode":
-      return `Mesa ${mesas.find((m) => m.id === c.mesaId)?.numero ?? "?"}`;
-    case "comanda":
-      return `Comanda ${c.comanda}`;
-    case "entrega":
-    case "delivery":
-      return `Entrega #${c.numero}`;
-    case "ifood":
-      return `iFood #${c.numero}`;
-    case "aiqfome":
-      return `aiqfome #${c.numero}`;
-    case "pdv":
-      return `Venda #${c.numero}`;
-    default:
-      return `${c.paraViagem ? "Viagem" : "Balcão"} #${c.numero}`;
-  }
-}
+export { nomeConta };
 
 const COR_PREPARO = { pendente: "amarela", preparo: "laranja", pronto: "verde", entregue: "neutra" } as const;
 const ROTULO_PREPARO = { pendente: "Na fila", preparo: "Preparando", pronto: "Pronto", entregue: "Entregue" } as const;
@@ -70,14 +56,57 @@ export function PainelConta({ contaId, aoFechar, semAcoes }: { contaId: string; 
   const funcionarios = useLoja((e) => e.funcionarios);
   const abertas = useLoja((e) => e.contas.filter((c) => c.status === "aberta" || c.status === "fechamento"));
   const agora = useRelogio();
-  const [modal, setModal] = useState<null | "lancar" | "pagar" | "desconto" | "servico" | "transferir" | "juntar" | "cancelar" | { item: string }>(null);
+  const [modal, setModal] = useState<null | "lancar" | "pagar" | "desconto" | "servico" | "transferir" | "juntar" | "cancelar" | "obs" | "mesa" | { item: string }>(null);
+  const [itemSel, setItemSel] = useState<string | null>(null);
+  const [mesaDestino, setMesaDestino] = useState("");
+  const [confirmarJuntar, setConfirmarJuntar] = useState(false);
   const [selecionados, setSelecionados] = useState<string[]>([]);
   const [texto, setTexto] = useState("");
   const [valor, setValor] = useState(0);
   const [destino, setDestino] = useState("");
   const [enviado, setEnviado] = useState<number | null>(null);
 
+  // Atalhos da conta aberta: F7 imprime, F6 recebe, F2 observação do item, Ctrl+J transfere a mesa
+  const atalhos = useRef<(e: KeyboardEvent) => void>(() => {});
+  atalhos.current = (ev: KeyboardEvent) => {
+    if (!conta || modal) return;
+    const aberta = conta.status === "aberta" || conta.status === "fechamento";
+    const tecla = (ev.ctrlKey || ev.metaKey ? "Ctrl+" : "") + (ev.key.length === 1 ? ev.key.toUpperCase() : ev.key);
+    if (tecla === "F7" && itensValidos(conta).length) {
+      ev.preventDefault();
+      if (aberta) pedirConta(conta.id);
+      imprimir({ tipo: "conta", conta });
+    } else if (tecla === "F6" && aberta && itensValidos(conta).length) {
+      ev.preventDefault();
+      setModal("pagar");
+    } else if (tecla === "F2" && aberta && conta.itens.some((i) => !i.cancelado)) {
+      ev.preventDefault();
+      abrirObs();
+    } else if (tecla === "Ctrl+J" && aberta && conta.mesaId) {
+      ev.preventDefault();
+      abrirTransferirMesa();
+    }
+  };
+  useEffect(() => {
+    const ouvir = (ev: KeyboardEvent) => atalhos.current(ev);
+    window.addEventListener("keydown", ouvir);
+    return () => window.removeEventListener("keydown", ouvir);
+  }, []);
+
   if (!conta) return null;
+  const itemObs = conta.itens.find((i) => i.id === itemSel && !i.cancelado) ?? conta.itens.filter((i) => !i.cancelado).at(-1);
+  function abrirObs() {
+    const alvo = conta!.itens.find((i) => i.id === itemSel && !i.cancelado) ?? conta!.itens.filter((i) => !i.cancelado).at(-1);
+    if (!alvo) return;
+    setItemSel(alvo.id);
+    setTexto(alvo.obs ?? "");
+    setModal("obs");
+  }
+  function abrirTransferirMesa() {
+    setMesaDestino("");
+    setConfirmarJuntar(false);
+    setModal("mesa");
+  }
   const fechada = conta.status === "paga" || conta.status === "cancelada";
   const nome = nomeConta(conta, mesas);
   const outras = abertas.filter((c) => c.id !== conta.id);
@@ -108,12 +137,14 @@ export function PainelConta({ contaId, aoFechar, semAcoes }: { contaId: string; 
       {!fechada && (
         <div className="mb-3 grid grid-cols-4 gap-2 sm:grid-cols-6">
           <Acao icone={Plus} rotulo="Adicionar" destaque onClick={() => setModal("lancar")} />
-          <Acao icone={CircleDollarSign} rotulo="Receber" onClick={() => setModal("pagar")} disabled={!itensValidos(conta).length} />
-          <Acao icone={ReceiptText} rotulo="Conta" onClick={() => { pedirConta(conta.id); imprimir({ tipo: "conta", conta }); }} disabled={!itensValidos(conta).length} />
+          <Acao icone={CircleDollarSign} rotulo="Receber (F6)" onClick={() => setModal("pagar")} disabled={!itensValidos(conta).length} />
+          <Acao icone={ReceiptText} rotulo="Conta (F7)" onClick={() => { pedirConta(conta.id); imprimir({ tipo: "conta", conta }); }} disabled={!itensValidos(conta).length} />
           <Acao icone={Printer} rotulo="Preparo" onClick={() => imprimir({ tipo: "preparo", conta, pedidoNumero: conta.itens.at(-1)?.pedidoNumero })} disabled={!conta.itens.length} />
           <Acao icone={BadgePercent} rotulo="Desconto" onClick={() => { setValor(conta.desconto); setTexto(""); setModal("desconto"); }} />
           {!semAcoes?.includes("servico") && <Acao icone={HandPlatter} rotulo="Serviço" onClick={() => setModal("servico")} />}
           {!semAcoes?.includes("transferir") && <Acao icone={ArrowRightLeft} rotulo="Transferir" onClick={() => { setSelecionados([]); setDestino(""); setModal("transferir"); }} disabled={!conta.itens.length || !outras.length} />}
+          <Acao icone={MessageSquareText} rotulo="Obs. (F2)" onClick={abrirObs} disabled={!conta.itens.some((i) => !i.cancelado)} />
+          {conta.mesaId && !semAcoes?.includes("transferir") && <Acao icone={MoveRight} rotulo="Mesa (Ctrl+J)" onClick={abrirTransferirMesa} />}
           {!semAcoes?.includes("juntar") && <Acao icone={Merge} rotulo="Juntar" onClick={() => { setDestino(""); setModal("juntar"); }} disabled={!outras.length} />}
           <Acao icone={Combine} rotulo="Agrupar" onClick={() => agruparItens(conta.id)} disabled={conta.itens.length < 2} />
           <Acao icone={Split} rotulo="Desagrupar" onClick={() => desagruparItens(conta.id)} disabled={!conta.itens.some((i) => i.qtd > 1)} />
@@ -146,7 +177,11 @@ export function PainelConta({ contaId, aoFechar, semAcoes }: { contaId: string; 
           </thead>
           <tbody className="divide-y divide-linha">
             {conta.itens.map((i) => (
-              <tr key={i.id} className={clsx(i.cancelado && "text-mudo line-through opacity-60")}>
+              <tr
+                key={i.id}
+                onClick={() => !i.cancelado && setItemSel(i.id)}
+                className={clsx("cursor-pointer", i.cancelado && "text-mudo line-through opacity-60", !i.cancelado && itemObs?.id === i.id && itemSel && "bg-rosado")}
+              >
                 <td className="px-3 py-2">
                   <span className="font-medium">{i.nome}</span>
                   <span className="ml-1.5 text-[11px] text-mudo">#{i.pedidoNumero}</span>
@@ -162,7 +197,7 @@ export function PainelConta({ contaId, aoFechar, semAcoes }: { contaId: string; 
                 <td className="hidden px-2 py-2 text-[12px] text-mudo sm:table-cell">{funcionarios.find((f) => f.id === i.atendenteId)?.nome}</td>
                 <td className="px-2 py-2 text-right">
                   {!i.cancelado && !fechada && (
-                    <button onClick={() => { setTexto(""); setModal({ item: i.id }); }} className="rounded-full p-1.5 text-mudo hover:bg-rosado hover:text-st-cancelado" aria-label="Cancelar item">
+                    <button onClick={(ev) => { ev.stopPropagation(); setTexto(""); setModal({ item: i.id }); }} className="rounded-full p-1.5 text-mudo hover:bg-rosado hover:text-st-cancelado" aria-label="Cancelar item">
                       <X size={15} />
                     </button>
                   )}
@@ -177,7 +212,7 @@ export function PainelConta({ contaId, aoFechar, semAcoes }: { contaId: string; 
       {/* Totais */}
       <div className="mt-3 space-y-1 rounded-2xl bg-card p-3 text-[13px] shadow-card">
         <Linha r="Subtotal" v={subtotal(conta)} />
-        {conta.servicoPct > 0 && <Linha r={`Serviço (${conta.servicoPct}%)`} v={valorServico(conta)} />}
+        {(conta.servicoPct > 0 || conta.servicoValor !== undefined) && <Linha r={rotuloComissao(conta)} v={valorServico(conta)} />}
         {conta.couvert > 0 && <Linha r="Couvert" v={conta.couvert} />}
         {conta.taxaEntrega > 0 && <Linha r="Taxa de entrega" v={conta.taxaEntrega} />}
         {conta.desconto > 0 && <Linha r="Desconto" v={-conta.desconto} />}
@@ -258,6 +293,91 @@ export function PainelConta({ contaId, aoFechar, semAcoes }: { contaId: string; 
         <Botao className="mt-3 w-full" disabled={!destino || !selecionados.length} onClick={() => { transferirItens(conta.id, destino, selecionados); fechar(); }}>
           Transferir {selecionados.length} item(ns)
         </Botao>
+      </Modal>
+
+      <Modal aberto={modal === "obs"} aoFechar={fechar} titulo="Observação do item (F2)" largura="sm">
+        {itemObs && (
+          <div className="space-y-3">
+            <p className="text-[13px]">
+              <b>
+                {itemObs.qtd}x {itemObs.nome}
+              </b>{" "}
+              <span className="text-mudo">· pedido #{itemObs.pedidoNumero}</span>
+            </p>
+            {conta.itens.filter((i) => !i.cancelado).length > 1 && (
+              <Selecao value={itemObs.id} onChange={(ev) => { const it = conta.itens.find((i) => i.id === ev.target.value); setItemSel(ev.target.value); setTexto(it?.obs ?? ""); }} aria-label="Item">
+                {conta.itens.filter((i) => !i.cancelado).map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.qtd}x {i.nome} {i.obs ? `· ${i.obs}` : ""}
+                  </option>
+                ))}
+              </Selecao>
+            )}
+            <label className="block">
+              <span className="mb-1.5 block text-[12.5px] font-semibold">Observação</span>
+              <Entrada autoFocus value={texto} onChange={(ev) => setTexto(ev.target.value)} onKeyDown={(ev) => { if (ev.key === "Enter") { definirObsItem(conta.id, itemObs.id, texto); fechar(); } }} placeholder="Ex.: sem cebola, bem passado" />
+            </label>
+            <Botao className="w-full" onClick={() => { definirObsItem(conta.id, itemObs.id, texto); fechar(); }}>
+              Salvar observação
+            </Botao>
+          </div>
+        )}
+      </Modal>
+
+      <Modal aberto={modal === "mesa"} aoFechar={fechar} titulo={`Transferir ${nome} (Ctrl+J)`} largura="sm">
+        {(() => {
+          const destino = mesas.find((m) => String(m.numero) === mesaDestino.trim());
+          const ocupada = destino ? abertas.find((c) => c.mesaId === destino.id && c.id !== conta.id) : undefined;
+          const mesma = destino?.id === conta.mesaId;
+          const executar = () => {
+            if (!destino || mesma) return;
+            if (ocupada && !confirmarJuntar) return setConfirmarJuntar(true);
+            transferirMesa(conta.id, destino.id);
+            fechar();
+            if (ocupada) aoFechar?.();
+          };
+          return (
+            <div className="space-y-3">
+              <label className="block">
+                <span className="mb-1.5 block text-[12.5px] font-semibold">Número da mesa de destino</span>
+                <Entrada
+                  autoFocus
+                  inputMode="numeric"
+                  value={mesaDestino}
+                  onChange={(ev) => { setMesaDestino(ev.target.value.replace(/\D/g, "")); setConfirmarJuntar(false); }}
+                  onKeyDown={(ev) => ev.key === "Enter" && executar()}
+                  placeholder="Ex.: 12"
+                  className="text-[20px] font-extrabold"
+                />
+              </label>
+              {mesaDestino && !destino && <p className="text-[12.5px] font-semibold text-st-cancelado">Mesa {mesaDestino} não existe.</p>}
+              {mesma && <p className="text-[12.5px] text-mudo">É a mesma mesa.</p>}
+              {destino && !mesma && !ocupada && <p className="text-[12.5px] text-ok">{rotuloMesa(destino)} está livre: a conta inteira passa para ela.</p>}
+              {destino && ocupada && !confirmarJuntar && <p className="text-[12.5px] font-semibold text-[#8A5A00]">{rotuloMesa(destino)} está ocupada ({brl(total(ocupada))}).</p>}
+              {destino && ocupada && confirmarJuntar && (
+                <div className="rounded-2xl bg-[#FDF0D6] p-3 text-[13px] text-[#8A5A00]">
+                  <p className="font-bold">Juntar as contas?</p>
+                  <p>
+                    Os itens e pagamentos de {nome} ({brl(total(conta))}) passam para {rotuloMesa(destino)}. As duas viram uma conta só.
+                  </p>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <Botao variante="secundario" onClick={() => setConfirmarJuntar(false)}>
+                      Cancelar
+                    </Botao>
+                    <Botao onClick={executar}>
+                      <Layers size={16} /> Juntar
+                    </Botao>
+                  </div>
+                </div>
+              )}
+              {!confirmarJuntar && (
+                <Botao className="w-full" disabled={!destino || mesma} onClick={executar}>
+                  <MoveRight size={16} /> {ocupada ? "Continuar" : "Transferir"}
+                </Botao>
+              )}
+            </div>
+          );
+        })()}
       </Modal>
 
       <Modal aberto={modal === "juntar"} aoFechar={fechar} titulo={`Juntar com ${nome}`} largura="sm">

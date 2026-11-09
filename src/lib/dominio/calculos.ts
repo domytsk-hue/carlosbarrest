@@ -10,8 +10,19 @@ export function subtotal(c: Conta) {
   return arred(itensValidos(c).reduce((s, i) => s + totalItem(i), 0));
 }
 
-export function valorServico(c: Conta) {
+/** Comissão sugerida pelo percentual da conta (ex.: 10% do consumo). */
+export function servicoSugerido(c: Conta) {
   return arred((subtotal(c) * c.servicoPct) / 100);
+}
+
+/** Comissão que vale na conta: a escolhida pelo cliente (integral, parcial ou zero) ou a sugerida. */
+export function valorServico(c: Conta) {
+  return c.servicoValor !== undefined ? arred(Math.max(0, c.servicoValor)) : servicoSugerido(c);
+}
+
+/** Total sem a comissão (consumo + couvert + entrega − desconto). */
+export function totalSemServico(c: Conta) {
+  return arred(Math.max(0, subtotal(c) + c.couvert + c.taxaEntrega - c.desconto));
 }
 
 export function total(c: Conta) {

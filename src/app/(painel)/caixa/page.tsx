@@ -23,7 +23,9 @@ export default function CaixaPage() {
   const sessao = e.sessoesCaixa.find((s) => s.id === e.sessaoAtivaId);
   const abertasOutras = e.sessoesCaixa.filter((s) => !s.fechadaEm && s.id !== e.sessaoAtivaId);
   const fechadas = e.sessoesCaixa.filter((s) => s.fechadaEm).slice(-15).reverse();
-  const [fundo, setFundo] = useState(100);
+  const [fundo, setFundo] = useState(e.sessoesCaixa.at(-1)?.fundo ?? 100);
+  const [fundoConferido, setFundoConferido] = useState(false);
+  const [confirmado, setConfirmado] = useState(false);
   const [caixaId, setCaixaId] = useState(e.caixas[0]?.id);
   const [mov, setMov] = useState<TipoMovimento | null>(null);
   const [valor, setValor] = useState(0);
@@ -53,10 +55,15 @@ export default function CaixaPage() {
               ))}
             </div>
             <label>
-              <span className="mb-1.5 block text-[12.5px] font-semibold">Fundo de troco (R$)</span>
+              <span className="mb-1.5 block text-[12.5px] font-semibold">Dinheiro inicial para troco (R$)</span>
               <EntradaValor valor={fundo} aoMudar={setFundo} />
+              <span className="mt-1 block text-[11.5px] text-mudo">Fica separado das vendas e não conta como faturamento.</span>
             </label>
-            <Botao tamanho="lg" disabled={!caixaId || ocupados.has(caixaId)} onClick={() => caixaId && abrirCaixa(caixaId, fundo)}>
+            <label className="flex items-center gap-2 rounded-2xl bg-fundo p-3 text-[13px] font-semibold">
+              <input type="checkbox" checked={fundoConferido} onChange={(x) => setFundoConferido(x.target.checked)} className="h-5 w-5 accent-[var(--acao)]" />
+              Conferi o dinheiro da gaveta
+            </label>
+            <Botao tamanho="lg" disabled={!caixaId || ocupados.has(caixaId) || !fundoConferido} onClick={() => caixaId && abrirCaixa(caixaId, fundo, true)}>
               <Unlock size={18} /> Abrir caixa
             </Botao>
             {abertasOutras.length > 0 && (
@@ -76,24 +83,39 @@ export default function CaixaPage() {
     );
   }
 
-  const r = resumoSessao(sessao, e.contas, e.formasPagamento);
+  const r = resumoSessao(sessao, e.contas, e.formasPagamento, e.fiado);
   const nomeCaixa = e.caixas.find((c) => c.id === sessao.caixaId)?.nome;
 
+  /** Formas que entram na conferência: as usadas no dia (menos o fiado, que não é dinheiro recebido) e sempre o dinheiro. */
+  const conferir = r.porForma.filter((p) => p.forma.tipo !== "fiado" && (p.valor || r.fiadoPorForma[p.forma.id] || p.forma.tipo === "dinheiro"));
+  const ondeConferir = (tipo: string) =>
+    tipo === "dinheiro" ? "dinheiro contado na gaveta" : tipo === "pix" ? "extrato do Pix" : tipo === "credito" || tipo === "debito" || tipo === "voucher" ? "nota da maquininha" : "comprovantes";
+
+  /** Relatório diário (CAI-03): faturamento, comissão arrecadada e conferência por modalidade. */
   function imprimirFechamento(cont?: Record<string, number>) {
+    const fmtDif = (id: string) => {
+      const v = cont?.[id];
+      if (v === undefined) return "";
+      const d = arred(v - (r.esperado[id] ?? 0));
+      return d === 0 ? " (confere)" : ` (${d > 0 ? "sobra" : "falta"} ${brl(Math.abs(d))})`;
+    };
     imprimir({
       tipo: "texto",
-      titulo: `Fechamento · ${nomeCaixa} · ${new Date().toLocaleString("pt-BR")}`,
+      titulo: `${cont ? "Fechamento do caixa" : "Parcial do caixa"} · ${nomeCaixa} · ${new Date().toLocaleString("pt-BR")}`,
       linhas: [
         ["Operador", sessao!.operadorNome],
-        ["Abertura", hora(sessao!.abertaEm)],
-        ["Fundo", brl(sessao!.fundo)],
-        ...r.porForma.filter((p) => p.valor).map((p) => [p.forma.nome, brl(p.valor)] as [string, string]),
+        ["Abertura", `${dataCurta(sessao!.abertaEm)} ${hora(sessao!.abertaEm)}`],
+        ["Fundo de troco", brl(sessao!.fundo)],
+        ["FATURAMENTO TOTAL", brl(r.vendas)],
+        ["COMISSÃO ARRECADADA", brl(r.comissao)],
+        ...r.porForma.filter((p) => p.valor).map((p) => [`Vendas · ${p.forma.nome}`, brl(p.valor)] as [string, string]),
+        ...(r.fiadoRecebido ? ([["Pagamentos de fiado recebidos", brl(r.fiadoRecebido)]] as [string, string][]) : []),
         ["Suprimentos", brl(r.suprimentos)],
         ["Sangrias", brl(-r.sangrias)],
         ["Despesas", brl(-r.despesas)],
         ["Repasses", brl(-r.repasses)],
-        ["Dinheiro esperado", brl(r.dinheiroEsperado)],
-        ...(cont ? Object.entries(cont).map(([id, v]) => [`Contado ${e.formasPagamento.find((f) => f.id === id)?.nome}`, brl(v)] as [string, string]) : []),
+        ...conferir.map((p) => [`${p.forma.nome} · sistema`, brl(r.esperado[p.forma.id] ?? 0)] as [string, string]),
+        ...(cont ? conferir.map((p) => [`${p.forma.nome} · conferido`, `${brl(cont[p.forma.id] ?? 0)}${fmtDif(p.forma.id)}`] as [string, string]) : []),
       ],
     });
   }
@@ -110,6 +132,7 @@ export default function CaixaPage() {
             <Botao
               onClick={() => {
                 setContado({});
+                setConfirmado(false);
                 setFechando(true);
               }}
             >
@@ -123,8 +146,9 @@ export default function CaixaPage() {
 
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className="rounded-[20px] bg-gradient-to-br from-[#9E1B1E] to-[#C2402F] p-4 text-white shadow-card">
-          <p className="text-[12px] font-semibold text-[#FFD9A0]">Vendas no caixa</p>
+          <p className="text-[12px] font-semibold text-[#FFD9A0]">Faturamento</p>
           <p className="num text-[24px] font-extrabold">{brl(r.vendas)}</p>
+          <p className="text-[11.5px] text-[#FFD9A0]">comissão arrecadada <span className="num">{brl(r.comissao)}</span></p>
         </div>
         <div className="rounded-[20px] bg-card p-4 shadow-card">
           <p className="text-[12px] font-semibold text-mudo">Dinheiro na gaveta</p>
@@ -158,6 +182,14 @@ export default function CaixaPage() {
                 <span className="num font-bold">{brl(p.valor)}</span>
               </li>
             ))}
+            {r.fiadoRecebido > 0 && (
+              <li className="flex items-center justify-between py-2.5 text-[13.5px]">
+                <span className="font-semibold">
+                  Pagamentos de fiado <span className="text-[11.5px] font-normal text-mudo">· não entram no faturamento</span>
+                </span>
+                <span className="num font-bold">{brl(r.fiadoRecebido)}</span>
+              </li>
+            )}
           </ul>
         </Cartao>
         <Cartao titulo="Movimentos do caixa">
@@ -204,38 +236,62 @@ export default function CaixaPage() {
       </Modal>
 
       <Modal aberto={fechando} aoFechar={() => setFechando(false)} titulo={`Fechar ${nomeCaixa}`} largura="md">
-        <p className="mb-3 text-[13px] text-mudo">Conte o que está na gaveta e nos comprovantes e informe por forma de pagamento.</p>
-        <div className="space-y-2">
-          {r.porForma
-            .filter((p) => p.valor || p.forma.tipo === "dinheiro")
-            .map((p) => {
-              const esp = r.esperado[p.forma.id] ?? 0;
-              const inf = contado[p.forma.id];
-              const dif = inf === undefined ? null : arred(inf - esp);
-              return (
-                <div key={p.forma.id} className="grid grid-cols-[1fr_120px_110px] items-center gap-2 rounded-2xl bg-card px-3 py-2 shadow-card">
-                  <span className="text-[13.5px] font-semibold">
-                    {p.forma.nome}
-                    <span className="block text-[11.5px] font-normal text-mudo">esperado {brl(esp)}</span>
-                  </span>
-                  <EntradaValor valor={0} aoMudar={(v) => setContado((c) => ({ ...c, [p.forma.id]: v }))} placeholder="Contado" className="py-2" />
-                  <span className="text-right">
-                    {dif === null ? null : dif === 0 ? <Pilula cor="verde">Confere</Pilula> : <Pilula cor={dif > 0 ? "azul" : "vermelha"}>{dif > 0 ? "Sobra" : "Falta"} {brl(Math.abs(dif))}</Pilula>}
-                  </span>
-                </div>
-              );
-            })}
+        <div className="mb-3 grid grid-cols-3 gap-2 rounded-2xl bg-card p-3 text-center shadow-card">
+          <div>
+            <p className="text-[11px] font-semibold text-mudo">Total recebido</p>
+            <p className="num text-[16px] font-extrabold">{brl(r.recebido)}</p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold text-mudo">Faturamento</p>
+            <p className="num text-[16px] font-extrabold">{brl(r.vendas)}</p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold text-mudo">Comissão arrecadada</p>
+            <p className="num text-[16px] font-extrabold text-acao">{brl(r.comissao)}</p>
+          </div>
         </div>
+        {(r.fiadoVendido > 0 || r.fiadoRecebido > 0) && (
+          <p className="mb-3 text-[12px] text-mudo">
+            Vendido no fiado: <b className="num">{brl(r.fiadoVendido)}</b> (entra no faturamento, não no dinheiro) · Pagamentos de fiado recebidos: <b className="num">{brl(r.fiadoRecebido)}</b> (entram no dinheiro, não no faturamento).
+          </p>
+        )}
+        <p className="mb-2 text-[13px] text-mudo">Informe o valor conferido de cada modalidade e compare com o sistema.</p>
+        <div className="space-y-2">
+          {conferir.map((p) => {
+            const esp = r.esperado[p.forma.id] ?? 0;
+            const inf = contado[p.forma.id];
+            const dif = inf === undefined ? null : arred(inf - esp);
+            return (
+              <div key={p.forma.id} className="grid grid-cols-[1fr_120px] items-center gap-2 rounded-2xl bg-card px-3 py-2 shadow-card sm:grid-cols-[1fr_120px_110px]">
+                <span className="text-[13.5px] font-semibold">
+                  {p.forma.nome}
+                  <span className="block text-[11.5px] font-normal text-mudo">
+                    sistema <span className="num">{brl(esp)}</span> · confira no {ondeConferir(p.forma.tipo)}
+                  </span>
+                </span>
+                <EntradaValor valor={0} aoMudar={(v) => setContado((c) => ({ ...c, [p.forma.id]: v }))} placeholder="Conferido" className="py-2" aria-label={`Conferido ${p.forma.nome}`} />
+                <span className="col-span-2 text-right sm:col-span-1">
+                  {dif === null ? null : dif === 0 ? <Pilula cor="verde">Confere</Pilula> : <Pilula cor={dif > 0 ? "azul" : "vermelha"}>{dif > 0 ? "Sobra" : "Falta"} {brl(Math.abs(dif))}</Pilula>}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        <label className="mt-3 flex items-center gap-2 rounded-2xl bg-fundo p-3 text-[13px] font-semibold">
+          <input type="checkbox" checked={confirmado} onChange={(x) => setConfirmado(x.target.checked)} className="h-5 w-5 accent-[var(--acao)]" />
+          Conferi os valores e quero encerrar o caixa do dia
+        </label>
         <Botao
-          className="mt-4 w-full"
+          className="mt-3 w-full"
           tamanho="lg"
+          disabled={!confirmado}
           onClick={() => {
             imprimirFechamento(contado);
-            fecharCaixa(contado);
+            fecharCaixa(contado, { faturamento: r.vendas, comissao: r.comissao, fiadoVendido: r.fiadoVendido, fiadoRecebido: r.fiadoRecebido });
             setFechando(false);
           }}
         >
-          <LockKeyhole size={18} /> Fechar e imprimir
+          <LockKeyhole size={18} /> Encerrar e imprimir relatório
         </Botao>
       </Modal>
     </div>
@@ -245,9 +301,9 @@ export default function CaixaPage() {
     return (
       <div className="mt-6">
         <h2 className="mb-2 text-[15.5px] font-bold">Caixas fechados</h2>
-        <Tabela colunas={[{ rotulo: "Data" }, { rotulo: "Caixa" }, { rotulo: "Operador" }, { rotulo: "Vendas", direita: true }, { rotulo: "Diferença", direita: true }]} vazio="Nenhum caixa fechado ainda.">
+        <Tabela colunas={[{ rotulo: "Data" }, { rotulo: "Caixa" }, { rotulo: "Operador" }, { rotulo: "Faturamento", direita: true }, { rotulo: "Comissão", direita: true }, { rotulo: "Diferença", direita: true }]} vazio="Nenhum caixa fechado ainda.">
           {fechadas.map((s) => {
-            const rs = resumoSessao(s, e.contas, e.formasPagamento);
+            const rs = resumoSessao(s, e.contas, e.formasPagamento, e.fiado);
             const dif = arred(Object.entries(s.contado ?? {}).reduce((a, [id, v]) => a + v - (rs.esperado[id] ?? 0), 0));
             return (
               <tr key={s.id}>
@@ -257,6 +313,7 @@ export default function CaixaPage() {
                 <td className="px-3 py-2.5">{e.caixas.find((c) => c.id === s.caixaId)?.nome}</td>
                 <td className="px-3 py-2.5">{s.operadorNome}</td>
                 <td className="num px-3 py-2.5 text-right font-semibold">{brl(rs.vendas)}</td>
+                <td className="num px-3 py-2.5 text-right">{brl(rs.comissao)}</td>
                 <td className={clsx("num px-3 py-2.5 text-right font-semibold", dif < 0 ? "text-st-cancelado" : dif > 0 ? "text-st-confirmado" : "text-ok")}>{brl(dif)}</td>
               </tr>
             );

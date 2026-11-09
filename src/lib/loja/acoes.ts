@@ -3,7 +3,8 @@
 import { arred, restante, total } from "../dominio/calculos";
 import { consumo } from "../dominio/estoque";
 import { precoVigente, validarCupom } from "../dominio/promocoes";
-import type { Canal, Conta, Endereco, FormaPagamentoOnline, Item, MovimentoCaixa, Pagamento, StatusEntrega, StatusPreparo, TipoMovimento } from "../dominio/tipos";
+import { nomeConta, rotuloMesa } from "../dominio/rotulos";
+import type { Canal, Conta, Endereco, FormaPagamentoOnline, Item, MovFiado, MovimentoCaixa, Pagamento, SessaoCaixa, StatusEntrega, StatusPreparo, TipoMovimento } from "../dominio/tipos";
 import type { Config, Estado } from "./estado";
 import { atualizar, novoId, obterEstado } from "./loja";
 
@@ -33,6 +34,8 @@ function mudarConta(id: string, fn: (c: Conta) => Conta) {
  * dos itens vendidos.
  */
 function comBaixa(e: Estado, itens: { produtoId: string; qtd: number }[], sinal: 1 | -1, documento: string): Estado {
+  // Estoque desligado (até o restaurante começar a usar): vendas não mexem nele
+  if (!e.config.estoqueAtivo) return e;
   const c = consumo(itens, e.produtos);
   if (!c.size) return e;
   const em = agora();
@@ -190,8 +193,12 @@ export function reabrirConta(contaId: string) {
   });
 }
 
-/** Registra um pagamento (parcial ou total). Fecha a conta quando quitada. */
-export function pagar(contaId: string, formaId: string, valor: number, extra?: Partial<Pagamento>) {
+/**
+ * Registra um pagamento (parcial ou total). Fecha a conta quando quitada.
+ * No fiado, `clienteFiadoId` diz em nome de quem a dívida fica: o valor entra
+ * no fiado do cliente com a origem (mesa e número da conta).
+ */
+export function pagar(contaId: string, formaId: string, valor: number, extra?: Partial<Pagamento>, clienteFiadoId?: string) {
   atualizar((e) => {
     const conta = e.contas.find((c) => c.id === contaId);
     if (!conta) return e;
@@ -201,17 +208,87 @@ export function pagar(contaId: string, formaId: string, valor: number, extra?: P
     const troco = forma?.tipo === "dinheiro" && valor > devido ? arred(valor - devido) : undefined;
     const pg: Pagamento = { id: novoId("pg"), formaId, valor: aplicado, troco, em: agora(), sessaoCaixaId: e.sessaoAtivaId, ...extra };
     let atualizada: Conta = { ...conta, pagamentos: [...conta.pagamentos, pg] };
+    if (forma?.tipo === "fiado" && clienteFiadoId && !atualizada.clienteId) {
+      const cl = e.clientes.find((x) => x.id === clienteFiadoId);
+      atualizada = { ...atualizada, clienteId: clienteFiadoId, clienteNome: atualizada.clienteNome ?? cl?.nome };
+    }
     if (restante(atualizada) <= 0.009) {
       atualizada = { ...atualizada, status: "paga", fechadaEm: agora() };
       if (atualizada.canal === "entrega" && atualizada.statusEntrega !== "entregue") atualizada.statusEntrega = atualizada.statusEntrega ?? "novo";
     }
     let e2: Estado = { ...e, contas: e.contas.map((c) => (c.id === contaId ? atualizada : c)) };
-    // Crédito/fiado do cliente
-    if (forma && (forma.tipo === "fiado" || forma.tipo === "credito_cliente") && conta.clienteId) {
+    // Fiado: a compra vai para a conta do cliente, com a origem
+    const devedor = clienteFiadoId ?? conta.clienteId;
+    if (forma?.tipo === "fiado" && devedor) {
+      const mov: MovFiado = {
+        id: novoId("fi"),
+        clienteId: devedor,
+        tipo: "lancamento",
+        valor: aplicado,
+        em: agora(),
+        origem: `${nomeConta(conta, e.mesas)} · conta ${conta.numero}`,
+        contaId,
+        usuario: usuarioNome(e),
+      };
+      e2 = comAuditoria({ ...e2, fiado: [...(e2.fiado ?? []), mov] }, "fiado.lancado", `${e.clientes.find((c) => c.id === devedor)?.nome}: ${aplicado.toFixed(2)} (${mov.origem})`);
+    }
+    // Crédito pré-pago do cliente
+    if (forma?.tipo === "credito_cliente" && conta.clienteId) {
       e2 = { ...e2, clientes: e2.clientes.map((cl) => (cl.id === conta.clienteId ? { ...cl, credito: arred(cl.credito - aplicado) } : cl)) };
     }
     return e2;
   });
+}
+
+/** Comissão escolhida pelo cliente (integral, parcial ou zero). `undefined` volta para a sugerida. */
+export function definirComissao(contaId: string, valor: number | undefined) {
+  atualizar((e) => {
+    const conta = e.contas.find((c) => c.id === contaId);
+    if (!conta) return e;
+    const e2 = { ...e, contas: e.contas.map((c) => (c.id === contaId ? { ...c, servicoValor: valor === undefined ? undefined : arred(Math.max(0, valor)) } : c)) };
+    return comAuditoria(e2, "conta.comissao", `Conta ${conta.numero}: ${valor === undefined ? "sugerida" : valor.toFixed(2)}`);
+  });
+}
+
+/** Observação de um item já lançado (F2). */
+export function definirObsItem(contaId: string, itemId: string, obs: string) {
+  mudarConta(contaId, (c) => ({ ...c, itens: c.itens.map((i) => (i.id === itemId ? { ...i, obs: obs.trim() || undefined } : i)) }));
+}
+
+/**
+ * Transfere a conta da mesa para outra mesa (Ctrl+J). Mesa livre: a conta só
+ * muda de mesa. Mesa ocupada: as contas são juntadas na de destino — quem chama
+ * deve pedir confirmação antes.
+ */
+export function transferirMesa(contaId: string, mesaDestinoId: string) {
+  const e = obterEstado();
+  const conta = e.contas.find((c) => c.id === contaId);
+  const destino = e.mesas.find((m) => m.id === mesaDestinoId);
+  if (!conta || !destino || conta.mesaId === mesaDestinoId) return;
+  const ocupada = contaDaMesa(e, mesaDestinoId);
+  const origem = rotuloMesa(e.mesas.find((m) => m.id === conta.mesaId));
+  if (ocupada) {
+    juntarContas(ocupada.id, contaId);
+    registrarAuditoria("mesa.juntada", `${origem} → ${rotuloMesa(destino)}`);
+  } else {
+    mudarConta(contaId, (c) => ({ ...c, mesaId: mesaDestinoId, canal: c.canal === "qrcode" ? "mesa" : c.canal }));
+    registrarAuditoria("mesa.transferida", `${origem} → ${rotuloMesa(destino)}`);
+  }
+}
+
+/** Muda a localização de uma mesa (Salão, Varanda, Rua). Pedidos e histórico continuam ligados a ela. */
+export function mudarLocalizacao(mesaId: string, area: string) {
+  atualizar((e) => {
+    const m = e.mesas.find((x) => x.id === mesaId);
+    if (!m || m.area === area) return e;
+    const e2 = { ...e, mesas: e.mesas.map((x) => (x.id === mesaId ? { ...x, area } : x)) };
+    return comAuditoria(e2, "mesa.localizacao", `Mesa ${m.numero}: ${m.area} → ${area}`);
+  });
+}
+
+/** Pedido de retirada entregue ao cliente no balcão. */
+export function marcarRetirado(contaId: string, retirado = true) {
+  mudarConta(contaId, (c) => ({ ...c, retiradoEm: retirado ? agora() : undefined }));
 }
 
 export function estornarPagamento(contaId: string, pagamentoId: string) {
@@ -246,7 +323,16 @@ export function juntarContas(destinoId: string, origemId: string) {
       contas: e.contas
         .map((c) =>
           c.id === destinoId
-            ? { ...c, itens: [...c.itens, ...origem.itens], pagamentos: [...c.pagamentos, ...origem.pagamentos], desconto: c.desconto + origem.desconto }
+            ? {
+                ...c,
+                itens: [...c.itens, ...origem.itens],
+                pagamentos: [...c.pagamentos, ...origem.pagamentos],
+                desconto: c.desconto + origem.desconto,
+                couvert: c.couvert + origem.couvert,
+                // A comissão escolhida volta para a sugerida: o consumo mudou
+                servicoValor: undefined,
+                status: "aberta" as const,
+              }
             : c,
         )
         .filter((c) => c.id !== origemId),
@@ -476,15 +562,15 @@ export function salvarCliente(dados: { id?: string; nome: string; telefone: stri
 // Caixa
 // ---------------------------------------------------------------------------
 
-export function abrirCaixa(caixaId: string, fundo: number) {
+export function abrirCaixa(caixaId: string, fundo: number, fundoConferido = false) {
   atualizar((e) => {
     const id = novoId("sx");
     const e2: Estado = {
       ...e,
       sessaoAtivaId: id,
-      sessoesCaixa: [...e.sessoesCaixa, { id, caixaId, operadorId: e.usuarioId, operadorNome: usuarioNome(e), abertaEm: agora(), fundo, movimentos: [] }],
+      sessoesCaixa: [...e.sessoesCaixa, { id, caixaId, operadorId: e.usuarioId, operadorNome: usuarioNome(e), abertaEm: agora(), fundo, fundoConferido, movimentos: [] }],
     };
-    return comAuditoria(e2, "caixa.aberto", `${e.caixas.find((c) => c.id === caixaId)?.nome} com fundo ${fundo.toFixed(2)}`);
+    return comAuditoria(e2, "caixa.aberto", `${e.caixas.find((c) => c.id === caixaId)?.nome} com fundo de troco ${fundo.toFixed(2)}${fundoConferido ? " (conferido)" : ""}`);
   });
 }
 
@@ -501,14 +587,14 @@ export function movimentarCaixa(tipo: TipoMovimento, valor: number, descricao: s
   });
 }
 
-export function fecharCaixa(contado: Record<string, number>) {
+export function fecharCaixa(contado: Record<string, number>, apuracao?: SessaoCaixa["apuracao"]) {
   atualizar((e) => {
     const id = e.sessaoAtivaId;
     if (!id) return e;
     const e2: Estado = {
       ...e,
       sessaoAtivaId: undefined,
-      sessoesCaixa: e.sessoesCaixa.map((s) => (s.id === id ? { ...s, fechadaEm: agora(), contado } : s)),
+      sessoesCaixa: e.sessoesCaixa.map((s) => (s.id === id ? { ...s, fechadaEm: agora(), contado, apuracao } : s)),
     };
     return comAuditoria(e2, "caixa.fechado", e.caixas.find((c) => c.id === e.sessoesCaixa.find((s) => s.id === id)?.caixaId)?.nome);
   });
@@ -529,4 +615,75 @@ export function salvarConfig(c: Partial<Config>, auditar?: string) {
     const n = { ...e, config: { ...e.config, ...c } };
     return auditar ? comAuditoria(n, auditar) : n;
   });
+}
+
+// ---------------------------------------------------------------------------
+// Fiado (em Contas)
+// ---------------------------------------------------------------------------
+
+/** Cadastra um cliente do fiado: só o nome é obrigatório. */
+export function cadastrarClienteFiado(nome: string, telefone = ""): string {
+  const id = salvarCliente({ nome: nome.trim(), telefone: telefone.trim() });
+  registrarAuditoria("fiado.cliente", nome.trim());
+  return id;
+}
+
+/** Lança uma compra no fiado sem passar por uma conta (ex.: dívida anterior ao sistema). */
+export function lancarFiado(clienteId: string, valor: number, origem: string, obs?: string) {
+  atualizar((e) => {
+    const mov: MovFiado = { id: novoId("fi"), clienteId, tipo: "lancamento", valor: arred(valor), em: agora(), origem: origem || "Lançamento manual", obs, usuario: usuarioNome(e) };
+    return comAuditoria({ ...e, fiado: [...(e.fiado ?? []), mov] }, "fiado.lancado", `${e.clientes.find((c) => c.id === clienteId)?.nome}: ${valor.toFixed(2)} (${mov.origem})`);
+  });
+}
+
+/** Pagamento (parcial ou total) do fiado. Entra no caixa aberto como recebimento, não como venda. */
+export function pagarFiado(clienteId: string, valor: number, formaId: string, obs?: string) {
+  atualizar((e) => {
+    const mov: MovFiado = {
+      id: novoId("fi"),
+      clienteId,
+      tipo: "pagamento",
+      valor: arred(valor),
+      em: agora(),
+      origem: "Pagamento",
+      formaId,
+      sessaoCaixaId: e.sessaoAtivaId,
+      obs,
+      usuario: usuarioNome(e),
+    };
+    return comAuditoria({ ...e, fiado: [...(e.fiado ?? []), mov] }, "fiado.pago", `${e.clientes.find((c) => c.id === clienteId)?.nome}: ${valor.toFixed(2)}`);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Dispositivos
+// ---------------------------------------------------------------------------
+
+/** Anota que um aparelho abriu o sistema. Aparelho novo entra como "aguardando autorização". */
+export function registrarDispositivo(id: string, descricao: string) {
+  atualizar((e) => {
+    const lista = e.dispositivos ?? [];
+    const ex = lista.find((d) => d.id === id);
+    if (ex) {
+      // Não regrava a cada abertura no mesmo minuto
+      if (ex.ultimoAcesso && Date.now() - new Date(ex.ultimoAcesso).getTime() < 60000) return e;
+      return { ...e, dispositivos: lista.map((d) => (d.id === id ? { ...d, ultimoAcesso: agora() } : d)) };
+    }
+    return { ...e, dispositivos: [...lista, { id, nome: `Aparelho ${id.slice(-4).toUpperCase()}`, autorizado: false, criadoEm: agora(), ultimoAcesso: agora(), descricao }] };
+  });
+}
+
+export function salvarDispositivo(id: string, dados: { nome?: string; funcionarioId?: string; autorizado?: boolean }) {
+  atualizar((e) => {
+    const d = (e.dispositivos ?? []).find((x) => x.id === id);
+    if (!d) return e;
+    const e2 = { ...e, dispositivos: e.dispositivos.map((x) => (x.id === id ? { ...x, ...dados } : x)) };
+    return dados.autorizado !== undefined && dados.autorizado !== d.autorizado
+      ? comAuditoria(e2, dados.autorizado ? "dispositivo.autorizado" : "dispositivo.bloqueado", dados.nome ?? d.nome)
+      : e2;
+  });
+}
+
+export function removerDispositivo(id: string) {
+  atualizar((e) => comAuditoria({ ...e, dispositivos: (e.dispositivos ?? []).filter((d) => d.id !== id) }, "dispositivo.removido", id));
 }

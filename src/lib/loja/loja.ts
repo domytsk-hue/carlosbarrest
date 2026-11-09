@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useSyncExternalStore } from "react";
-import { estadoInicial, VERSAO, type Estado } from "./estado";
+import { estadoInicial, TOTAL_MESAS, VERSAO, type Estado } from "./estado";
 
 // Loja local do modo demonstração: todo o estado vive no navegador
 // (localStorage) e sincroniza entre abas — o caixa e o app do garçom abertos
@@ -25,10 +25,28 @@ function carregar(recebido?: string | null): Estado {
       const salvo = JSON.parse(bruto) as Estado;
       // Campos novos de versões futuras entram com o valor padrão
       const padrao = estadoInicial();
-      return { ...padrao, ...salvo, config: { ...padrao.config, ...salvo.config }, versao: VERSAO };
+      return migrar({ ...padrao, ...salvo, config: { ...padrao.config, ...salvo.config }, versao: VERSAO }, salvo.versao ?? 1);
     }
   } catch {}
   return estadoInicial();
+}
+
+/**
+ * Ajusta dados gravados por versões anteriores:
+ * v2 · mesas de 1 a 40 (sem duplicar número) e estoque desligado até março.
+ */
+function migrar(e: Estado, versaoSalva: number): Estado {
+  if (versaoSalva >= 2) return e;
+  const numeros = new Set(e.mesas.map((m) => m.numero));
+  const faltam = Array.from({ length: TOTAL_MESAS }, (_, i) => i + 1)
+    .filter((n) => !numeros.has(n))
+    .map((n) => ({ id: `m${n}`, numero: n, area: "Salão", lugares: 4 }))
+    .filter((m) => !e.mesas.some((x) => x.id === m.id));
+  return {
+    ...e,
+    mesas: [...e.mesas, ...faltam].sort((a, b) => a.numero - b.numero),
+    config: { ...e.config, estoqueAtivo: false },
+  };
 }
 
 // Gravar no localStorage transforma o estado inteiro em texto, o que pesa
