@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+/* Identidade visual Carlo's Bar & Restaurante — ver docs/identidade-visual/identidade-visual.md */
+:root {
+  --marca: #9e1b1e;
+  --acao: #b8322a;
+  --acao-forte: #9e1b1e;
+  --ouro: #f2a93b;
+  --fundo: #f7eee3;
+  --card: #fffbf6;
+  --tinta: #2a1a16;
+  --mudo: #7a685f;
+  --linha: #eadccd;
+  --ok: #2e9e55;
+  --rosado: #fbe9e2;
+  --rosado-forte: #fbe1d8;
+  --secundario: #f1e4d6;
+  --icone-fundo: #f4efea;
+  --barra-topo: #9e1b1e;
+  --sombra: 80 30 10;
+
+  /* status de pedido */
+  --st-novo: #f2a93b;
+  --st-confirmado: #3b82c4;
+  --st-preparo: #e0702f;
+  --st-pronto: #2e9e55;
+  --st-entregue: #b9aaa0;
+  --st-cancelado: #c0392b;
+}
+
+:root[data-theme="dark"] {
+  --marca: #c4302f;
+  --acao: #d9483d;
+  --acao-forte: #e2594e;
+  --fundo: #1c1412;
+  --card: #2a1f1c;
+  --tinta: #f7eee3;
+  --mudo: #b8a79c;
+  --linha: #3d2e29;
+  --rosado: #3a2622;
+  --rosado-forte: #4a2b26;
+  --secundario: #35281f;
+  --icone-fundo: #33261f;
+  --barra-topo: #2a1f1c;
+  --sombra: 0 0 0;
+}
+
+@theme inline {
+  --color-marca: var(--marca);
+  --color-acao: var(--acao);
+  --color-acao-forte: var(--acao-forte);
+  --color-ouro: var(--ouro);
+  --color-fundo: var(--fundo);
+  --color-card: var(--card);
+  --color-tinta: var(--tinta);
+  --color-mudo: var(--mudo);
+  --color-linha: var(--linha);
+  --color-ok: var(--ok);
+  --color-rosado: var(--rosado);
+  --color-rosado-forte: var(--rosado-forte);
+  --color-secundario: var(--secundario);
+  --color-icone-fundo: var(--icone-fundo);
+  --color-barra-topo: var(--barra-topo);
+  --color-st-novo: var(--st-novo);
+  --color-st-confirmado: var(--st-confirmado);
+  --color-st-preparo: var(--st-preparo);
+  --color-st-pronto: var(--st-pronto);
+  --color-st-entregue: var(--st-entregue);
+  --color-st-cancelado: var(--st-cancelado);
+  --font-sans: "Poppins", system-ui, sans-serif;
+  --font-slab: "Roboto Slab", Georgia, serif;
+  --shadow-card: 0 2px 12px rgb(var(--sombra) / 0.07);
+  --shadow-flutuante: 0 8px 30px rgb(var(--sombra) / 0.18);
+  --shadow-botao: 0 3px 8px rgb(184 50 42 / 0.35);
+}
+
+html,
+body {
+  background: var(--fundo);
+  color: var(--tinta);
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Valores e tabelas sempre com números tabulares */
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 768px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* No modo escuro o logo ganha uma base creme: a assinatura "BAR & RESTAURANTE" é preta. */
+:root[data-theme="dark"] .logo-marca {
+  background: #f7eee3;
+  border-radius: 16px;
+  padding: 6px 10px;
+}
