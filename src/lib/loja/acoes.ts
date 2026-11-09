@@ -1,8 +1,8 @@
 "use client";
 
 import { arred, restante, total } from "../dominio/calculos";
-import type { Canal, Conta, Endereco, Item, MovimentoCaixa, Pagamento, StatusEntrega, StatusPreparo, TipoMovimento } from "../dominio/tipos";
-import type { Estado } from "./estado";
+import type { Canal, Conta, Endereco, FormaPagamentoOnline, Item, MovimentoCaixa, Pagamento, StatusEntrega, StatusPreparo, TipoMovimento } from "../dominio/tipos";
+import type { Config, Estado } from "./estado";
 import { atualizar, novoId, obterEstado } from "./loja";
 
 const agora = () => new Date().toISOString();
@@ -263,8 +263,114 @@ export function desagruparItens(contaId: string) {
   }));
 }
 
+const CANAIS_ENTREGA: Canal[] = ["entrega", "delivery", "ifood", "aiqfome"];
+
+/** Avança o preparo (KDS). Em pedidos de entrega, o status do pedido acompanha a cozinha. */
 export function mudarPreparo(contaId: string, itemIds: string[], status: StatusPreparo) {
-  mudarConta(contaId, (c) => ({ ...c, itens: c.itens.map((i) => (itemIds.includes(i.id) ? { ...i, preparo: status } : i)) }));
+  mudarConta(contaId, (c) => {
+    const itens = c.itens.map((i) => (itemIds.includes(i.id) ? { ...i, preparo: status } : i));
+    let statusEntrega = c.statusEntrega;
+    if (CANAIS_ENTREGA.includes(c.canal) && statusEntrega && ["novo", "confirmado", "preparo"].includes(statusEntrega)) {
+      const validos = itens.filter((i) => !i.cancelado);
+      if (validos.length && validos.every((i) => i.preparo === "pronto" || i.preparo === "entregue")) statusEntrega = "pronto";
+      else if (status === "preparo") statusEntrega = "preparo";
+    }
+    return { ...c, itens, statusEntrega };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Cardápio QR Code da mesa e chamados
+// ---------------------------------------------------------------------------
+
+/** Pedido feito pelo cliente no QR Code: entra na conta da mesa (abre se preciso). */
+export function pedidoQrCode(mesaId: string, itens: ItemNovo[]): number {
+  const e = obterEstado();
+  const contaId = contaDaMesa(e, mesaId)?.id ?? abrirConta({ canal: "mesa", mesaId, atendenteId: undefined });
+  const n = lancarItens(contaId, itens, "qrcode");
+  registrarAuditoria("Pedido pelo QR Code", `Mesa ${e.mesas.find((m) => m.id === mesaId)?.numero} · pedido ${n}`);
+  return n;
+}
+
+export function chamar(mesaId: string, motivo: "garcom" | "conta") {
+  atualizar((e) => {
+    if (e.chamados.some((c) => c.mesaId === mesaId && c.motivo === motivo && !c.atendidoEm)) return e;
+    return { ...e, chamados: [{ id: novoId("ch"), mesaId, motivo, em: agora() }, ...e.chamados].slice(0, 300) };
+  });
+  if (motivo === "conta") {
+    const c = contaDaMesa(obterEstado(), mesaId);
+    if (c && c.status === "aberta") pedirConta(c.id);
+  }
+}
+
+export function atenderChamado(id: string) {
+  atualizar((e) => ({ ...e, chamados: e.chamados.map((c) => (c.id === id ? { ...c, atendidoEm: agora(), atendidoPor: e.usuarioId } : c)) }));
+}
+
+// ---------------------------------------------------------------------------
+// Delivery próprio (cardápio online)
+// ---------------------------------------------------------------------------
+
+export type PedidoOnline = {
+  nome: string;
+  telefone: string;
+  retirada: boolean;
+  endereco?: Endereco;
+  itens: ItemNovo[];
+  pagamento: FormaPagamentoOnline;
+  trocoPara?: number;
+  observacao?: string;
+};
+
+/** Pedido do cardápio online: vira uma conta do canal "delivery" com status "novo". */
+export function pedidoOnline(p: PedidoOnline): string {
+  const clienteId = salvarCliente({ nome: p.nome, telefone: p.telefone, endereco: p.retirada ? undefined : p.endereco });
+  const id = novoId("c");
+  atualizar((e) => {
+    const numero = e.seq.pedido + 1;
+    const taxa = p.retirada ? 0 : (e.bairros.find((b) => b.id === p.endereco?.bairroId)?.taxa ?? 0);
+    const itens: Item[] = p.itens.map((i) => {
+      const prod = e.produtos.find((x) => x.id === i.produtoId)!;
+      return {
+        id: novoId("i"),
+        produtoId: prod.id,
+        nome: prod.nome,
+        preco: prod.precoDelivery ?? prod.preco,
+        qtd: i.qtd,
+        obs: i.obs,
+        setor: prod.setor,
+        atendenteId: "online",
+        pedidoNumero: numero,
+        enviadoEm: agora(),
+        preparo: "pendente",
+      };
+    });
+    const pag = { pix: "Pix", dinheiro: "Dinheiro", cartao: "Cartão na entrega" }[p.pagamento];
+    const troco = p.pagamento === "dinheiro" && p.trocoPara ? ` · troco para ${p.trocoPara.toFixed(2).replace(".", ",")}` : "";
+    const conta: Conta = {
+      id,
+      numero: e.seq.conta,
+      canal: "delivery",
+      status: "aberta",
+      clienteId,
+      clienteNome: p.nome,
+      telefone: p.telefone,
+      endereco: p.retirada ? undefined : p.endereco,
+      paraViagem: p.retirada,
+      statusEntrega: "novo",
+      itens,
+      pagamentos: [],
+      desconto: 0,
+      servicoPct: 0,
+      couvert: 0,
+      taxaEntrega: taxa,
+      abertaEm: agora(),
+      pagamentoOnline: p.pagamento,
+      observacao: [`Pagamento: ${pag}${troco}`, p.retirada ? "Retirada no balcão" : "", p.observacao ?? ""].filter(Boolean).join(" · "),
+    };
+    return { ...e, contas: [...e.contas, conta], seq: { conta: e.seq.conta + 1, pedido: numero } };
+  });
+  return id;
 }
 
 // ---------------------------------------------------------------------------
@@ -353,3 +459,14 @@ export function trocarUsuario(funcionarioId: string) {
 }
 
 export { obterEstado };
+
+// ---------------------------------------------------------------------------
+// Configurações
+// ---------------------------------------------------------------------------
+
+export function salvarConfig(c: Partial<Config>, auditar?: string) {
+  atualizar((e) => {
+    const n = { ...e, config: { ...e.config, ...c } };
+    return auditar ? comAuditoria(n, auditar) : n;
+  });
+}

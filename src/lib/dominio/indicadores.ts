@@ -65,7 +65,7 @@ export function porAtendente(contas: Conta[], funcionarios: Funcionario[]) {
       m.set(id, { qtd: x.qtd + i.qtd, valor: arred(x.valor + v), servico: arred(x.servico + (v / sub) * ((sub * c.servicoPct) / 100)) });
     }
   }
-  return [...m.entries()].map(([id, v]) => ({ id, nome: funcionarios.find((f) => f.id === id)?.nome ?? "—", ...v })).sort((a, b) => b.valor - a.valor);
+  return [...m.entries()].map(([id, v]) => ({ id, nome: id === "qrcode" ? "Cardápio QR" : id === "online" ? "Delivery online" : (funcionarios.find((f) => f.id === id)?.nome ?? "—"), ...v })).sort((a, b) => b.valor - a.valor);
 }
 
 export function porHora(contas: Conta[]) {
