@@ -35,7 +35,8 @@ Sem as variáveis do Supabase, o app roda em **modo demonstração**: sem login 
 
 1. Crie um projeto no Supabase e aplique `supabase/migrations/` (pelo SQL Editor ou `supabase db push`).
 2. Preencha `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` no `.env.local`.
-3. Crie um usuário em Authentication, entre no app e chame `select criar_restaurante('Carlo''s Bar & Restaurante', 'Seu nome');` logado como ele (ou insira o vínculo em `membros`).
+3. Rode `supabase/migrations/20261109060000_seguranca.sql` por último (já incluído no `db push`): tira da API as funções internas.
+4. Crie um usuário em Authentication, entre no app e chame `select criar_restaurante('Carlo''s Bar & Restaurante', 'Seu nome');` logado como ele (ou insira o vínculo em `membros`).
 
 ## Estrutura
 
