@@ -1,6 +1,7 @@
 "use client";
 
 // Envia cupons ESC/POS ao agente local de impressão (pasta agente/ do repositório).
+import { rotuloComissao } from "../dominio/rotulos";
 import { brl, hora, itensValidos, pago, restante, subtotal, total, totalItem, valorServico } from "../dominio/calculos";
 import type { Conta, Setor } from "../dominio/tipos";
 import type { Estado } from "../loja/estado";
@@ -77,7 +78,7 @@ export function montarCupons(t: TrabalhoImpressao, e: Estado): { impressora: str
   for (const i of itensValidos(k)) c.linha(`${i.qtd}x ${i.nome}`, brl(totalItem(i)));
   c.separador();
   c.linha("Subtotal", brl(subtotal(k)));
-  if (k.servicoPct > 0) c.linha(`Serviço ${k.servicoPct}%`, brl(valorServico(k)));
+  if (k.servicoPct > 0 || k.servicoValor !== undefined) c.linha(rotuloComissao(k), brl(valorServico(k)));
   if (k.couvert > 0) c.linha("Couvert", brl(k.couvert));
   if (k.taxaEntrega > 0) c.linha("Taxa de entrega", brl(k.taxaEntrega));
   if (k.desconto > 0) c.linha("Desconto", "-" + brl(k.desconto));

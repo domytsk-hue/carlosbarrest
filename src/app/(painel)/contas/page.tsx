@@ -2,9 +2,9 @@
 
 import clsx from "clsx";
 import { CheckCheck, Paperclip, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { FormLancamento } from "@/components/financeiro/form-lancamento";
+import { Fiado } from "./fiado";
 import { Exportar } from "@/components/relatorio";
 import { Botao, Campo, Entrada, EntradaValor, Modal, Pilula, Selecao, Tabela, Titulo } from "@/components/ui";
 import { arred, brl, diaLocal } from "@/lib/dominio/calculos";
@@ -26,7 +26,26 @@ const somaDias = (n: number) => {
   return diaLocal(d);
 };
 
+const ABAS = ["Fiado", "Contas a pagar e receber"] as const;
+
+/** Contas: o fiado dos clientes (substitui a antiga "Nova conta") e o financeiro a pagar/receber. */
 export default function ContasPage() {
+  const [aba, setAba] = useState<(typeof ABAS)[number]>("Fiado");
+  return (
+    <div className="mx-auto max-w-[1300px]">
+      <div className="mb-3 flex gap-1.5">
+        {ABAS.map((a) => (
+          <button key={a} onClick={() => setAba(a)} className={clsx("whitespace-nowrap rounded-full border-[1.5px] px-3.5 py-1.5 text-[12.5px] font-semibold", a === aba ? "border-tinta bg-tinta text-fundo" : "border-linha bg-card")}>
+            {a}
+          </button>
+        ))}
+      </div>
+      {aba === "Fiado" ? <Fiado /> : <Financeiro />}
+    </div>
+  );
+}
+
+function Financeiro() {
   const lancamentos = useLoja((e) => e.lancamentos);
   const plano = useLoja((e) => e.planoContas);
   const fornecedores = useLoja((e) => e.fornecedores);
@@ -70,7 +89,7 @@ export default function ContasPage() {
   const nomeDe = (l: Lancamento) => (l.tipo === "pagar" ? fornecedores.find((f) => f.id === l.fornecedorId)?.nome : clientes.find((c) => c.id === l.clienteId)?.nome);
 
   return (
-    <div className="mx-auto max-w-[1300px]">
+    <div>
       <Titulo
         sub="Contas a pagar e a receber, com parcelas, recorrência, multa/juros e anexos"
         acoes={
@@ -80,11 +99,9 @@ export default function ContasPage() {
               cab={["Tipo", "Descrição", "Parcela", "Plano", "Fornecedor/Cliente", "Vencimento", "Valor", "Pago em", "Valor pago"]}
               linhas={lista.map((l) => [l.tipo, l.descricao, l.parcela ?? "", plano.find((p) => p.id === l.planoId)?.nome ?? "", nomeDe(l) ?? "", br(l.vencimento), l.valor, l.pagoEm ? br(l.pagoEm) : "", l.pagoEm ? valorFinal(l) : ""])}
             />
-            <Link href="/nova-conta">
-              <Botao>
-                <Plus size={18} /> Nova conta
-              </Botao>
-            </Link>
+            <Botao onClick={() => setEditar("novo")}>
+              <Plus size={18} /> Lançar conta
+            </Botao>
           </>
         }
       >

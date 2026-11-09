@@ -1,7 +1,8 @@
 "use client";
 
 import clsx from "clsx";
-import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, ClipboardCheck, FileUp, Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, PackageOpen, ArrowDownToLine, ArrowUpFromLine, ClipboardCheck, FileUp, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { EditorLista } from "@/components/editor-lista";
 import { Exportar } from "@/components/relatorio";
@@ -18,7 +19,33 @@ const ROTULO_MOV: Record<TipoMovEstoque, string> = { entrada: "Entrada", saida: 
 const COR_MOV: Record<TipoMovEstoque, "verde" | "neutra" | "vermelha" | "azul" | "laranja"> = { entrada: "verde", saida: "neutra", perda: "vermelha", ajuste: "azul", venda: "laranja", estorno: "azul" };
 const fmtQ = (q: number, u: Unidade) => `${q.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} ${ROTULO_UNIDADE[u]}`;
 
+/** Estoque fica desligado até o restaurante começar a usar (previsto para março). */
 export default function EstoquePage() {
+  const ativo = useLoja((e) => e.config.estoqueAtivo);
+  if (!ativo) {
+    return (
+      <div className="mx-auto max-w-2xl py-10">
+        <div className="rounded-[20px] bg-card p-8 text-center shadow-card">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-secundario text-mudo">
+            <PackageOpen size={30} />
+          </div>
+          <h1 className="text-[22px] font-extrabold">Estoque desligado</h1>
+          <p className="mt-1 text-[14px] text-mudo">O controle de estoque volta a ser usado em março. Até lá, as vendas não dão baixa em insumos e nenhum aviso de estoque aparece.</p>
+          <p className="mt-4 text-[12.5px] text-mudo">
+            Nada foi apagado. Para religar quando chegar a hora, vá em{" "}
+            <Link href="/configuracoes" className="font-semibold text-acao">
+              Configurações → Estoque
+            </Link>
+            .
+          </p>
+        </div>
+      </div>
+    );
+  }
+  return <EstoqueAtivo />;
+}
+
+function EstoqueAtivo() {
   const [aba, setAba] = useState<(typeof ABAS)[number]>("Posição");
   const insumos = useLoja((e) => e.insumos);
   const movs = useLoja((e) => e.movimentosEstoque);

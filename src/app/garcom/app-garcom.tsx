@@ -9,6 +9,7 @@ import { imprimir } from "@/components/impressao";
 import { Lancador } from "@/components/pedido/lancador";
 import { PagamentoModal } from "@/components/pedido/pagamento";
 import { nomeConta } from "@/components/pedido/painel-conta";
+import { rotuloMesa } from "@/lib/dominio/rotulos";
 import { useRelogio } from "@/components/ui";
 import { brl, duracao, itensValidos, minutosDesde, restante, total } from "@/lib/dominio/calculos";
 import type { Conta } from "@/lib/dominio/tipos";
@@ -30,6 +31,7 @@ export function AppGarcom() {
   const [lancando, setLancando] = useState<{ contaId: string; titulo: string; nova: boolean } | null>(null);
   const [pagando, setPagando] = useState<Conta | null>(null);
   const [aviso, setAviso] = useState("");
+  const [numMesa, setNumMesa] = useState("");
 
   const abertas = useMemo(() => contas.filter((c) => c.status === "aberta" || c.status === "fechamento"), [contas]);
   const chamados = chamadosTodos.filter((c) => !c.atendidoEm);
@@ -61,7 +63,7 @@ export function AppGarcom() {
     if (!mesa) return;
     const existente = conta;
     const id = existente?.id ?? abrirConta({ canal: "mesa", mesaId: mesa.id, atendenteId: usuarioId });
-    setLancando({ contaId: id, titulo: `Mesa ${mesa.numero}`, nova: !existente });
+    setLancando({ contaId: id, titulo: rotuloMesa(mesa), nova: !existente });
   }
 
   return (
@@ -77,7 +79,7 @@ export function AppGarcom() {
           </Link>
         )}
         <div className="min-w-0 flex-1">
-          <p className="truncate font-slab text-[17px] font-extrabold">{mesa ? `Mesa ${mesa.numero}` : "Garçom"}</p>
+          <p className="truncate font-slab text-[17px] font-extrabold">{mesa ? rotuloMesa(mesa) : "Garçom"}</p>
           {mesa && conta && (
             <p className="text-[11.5px] text-white/75">
               Aberta há {duracao(conta.abertaEm, agora)} · {funcionarios.find((f) => f.id === conta.atendenteId)?.nome ?? "—"}
@@ -169,8 +171,31 @@ export function AppGarcom() {
             <button onClick={() => setSoMinhas(true)} className={clsx("rounded-full px-3 py-1.5 font-bold", soMinhas ? "bg-acao text-white" : "bg-card shadow-card")}>
               Minhas
             </button>
-            <span className="ml-auto text-mudo">{abertas.filter((c) => c.mesaId).length} ocupadas</span>
+            <form
+              onSubmit={(ev) => {
+                ev.preventDefault();
+                const m = mesas.find((x) => String(x.numero) === numMesa.trim());
+                if (m) {
+                  setMesaSel(m.id);
+                  setNumMesa("");
+                } else if (numMesa) mostrar(`Mesa ${numMesa} não existe`);
+              }}
+              className="ml-auto flex items-center gap-1 rounded-full bg-card py-0.5 pl-3 pr-0.5 shadow-card"
+            >
+              <input
+                value={numMesa}
+                onChange={(ev) => setNumMesa(ev.target.value.replace(/\D/g, "").slice(0, 3))}
+                inputMode="numeric"
+                placeholder="Nº"
+                aria-label="Número da mesa"
+                className="num w-12 bg-transparent font-bold outline-none"
+              />
+              <button type="submit" className="rounded-full bg-acao px-3 py-1.5 font-bold text-white">
+                Ir
+              </button>
+            </form>
           </div>
+          <p className="mb-2 text-right text-[12px] text-mudo">{abertas.filter((c) => c.mesaId).length} ocupadas</p>
           <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
             {mesas.map((m) => {
               const c = abertas.find((x) => x.mesaId === m.id);
@@ -189,6 +214,7 @@ export function AppGarcom() {
                   )}
                 >
                   <span className="num text-[22px] font-extrabold leading-none">{m.numero}</span>
+                  {!c && <span className="mt-0.5 text-[9.5px] font-semibold text-mudo">{m.area}</span>}
                   {c && <span className="num mt-0.5 text-[10.5px] font-semibold opacity-85">{brl(total(c)).replace("R$", "").trim()}</span>}
                   {chamou && <BellRing size={15} className="absolute right-1.5 top-1.5 animate-pulse text-ouro drop-shadow" />}
                   {pronto && <HandPlatter size={15} className="absolute left-1.5 top-1.5 text-[#BDF5CF]" />}
@@ -233,7 +259,7 @@ export function AppGarcom() {
                   {c.motivo === "conta" ? <Receipt size={20} /> : <BellRing size={20} />}
                 </span>
                 <div className="flex-1">
-                  <p className="font-extrabold">Mesa {m?.numero}</p>
+                  <p className="font-extrabold">{rotuloMesa(m)}</p>
                   <p className="text-[12.5px] text-mudo">
                     {c.motivo === "conta" ? "Pediu a conta" : "Chamou o garçom"} · há {minutosDesde(c.em, agora)} min
                   </p>

@@ -3,15 +3,15 @@
 import clsx from "clsx";
 import { useState } from "react";
 import { EditorLista } from "@/components/editor-lista";
-import { Pilula, Titulo } from "@/components/ui";
+import { Titulo } from "@/components/ui";
 import { brl } from "@/lib/dominio/calculos";
 import { ROTULO_GRUPO } from "@/lib/dominio/financeiro";
-import type { Bairro, Caixa, Categoria, Cliente, FormaPagamento, Fornecedor, Funcionario, Mesa, PlanoConta } from "@/lib/dominio/tipos";
+import { saldoFiado } from "@/lib/dominio/fiado";
+import { LOCALIZACOES, type Bairro, type Caixa, type Categoria, type Cliente, type FormaPagamento, type Fornecedor, type Mesa, type PlanoConta } from "@/lib/dominio/tipos";
 import { excluirRegistro, salvarRegistro } from "@/lib/loja/cadastros";
 import { useLoja } from "@/lib/loja/loja";
-import { ROTULO_FUNCAO } from "@/lib/sessao-rotulos";
 
-const ABAS = ["Clientes", "Fornecedores", "Funcionários", "Categorias", "Mesas", "Bairros", "Formas de pagamento", "Plano de contas", "Caixas"] as const;
+const ABAS = ["Clientes", "Fornecedores", "Categorias", "Mesas", "Bairros", "Formas de pagamento", "Plano de contas", "Caixas"] as const;
 
 export default function CadastrosPage() {
   const [aba, setAba] = useState<(typeof ABAS)[number]>("Clientes");
@@ -38,25 +38,10 @@ export default function CadastrosPage() {
           aoExcluir={(c) => excluirRegistro("clientes", c.id)}
           campos={[
             { chave: "nome", rotulo: "Nome", obrigatorio: true },
-            { chave: "telefone", rotulo: "Telefone", obrigatorio: true },
+            { chave: "telefone", rotulo: "Telefone (opcional)" },
             { chave: "enderecos", rotulo: "Endereços", formulario: false, exibir: (c) => c.enderecos.map((x) => `${x.rua}, ${x.numero}`).join(" · ") || "—" },
-            { chave: "credito", rotulo: "Crédito / fiado", tipo: "valor", direita: true, exibir: (c) => <span className={c.credito < 0 ? "text-st-cancelado" : ""}>{brl(c.credito)}</span> },
-          ]}
-        />
-      )}
-
-      {aba === "Funcionários" && (
-        <EditorLista<Funcionario>
-          titulo="Funcionário"
-          itens={e.funcionarios}
-          novo={() => ({ id: "", nome: "", funcao: "garcom", comissao: 0, ativo: true })}
-          aoSalvar={(f) => salvarRegistro("funcionarios", f)}
-          aoExcluir={(f) => excluirRegistro("funcionarios", f.id)}
-          campos={[
-            { chave: "nome", rotulo: "Nome", obrigatorio: true },
-            { chave: "funcao", rotulo: "Função", tipo: "opcao", opcoes: Object.entries(ROTULO_FUNCAO).map(([valor, rotulo]) => ({ valor, rotulo })) },
-            { chave: "comissao", rotulo: "Comissão (% do serviço ou R$ por entrega)", tipo: "valor", direita: true },
-            { chave: "ativo", rotulo: "Ativo", tipo: "booleano", exibir: (f) => (f.ativo ? <Pilula cor="verde">Ativo</Pilula> : <Pilula>Inativo</Pilula>) },
+            { chave: "credito", rotulo: "Crédito pré-pago", tipo: "valor", direita: true, exibir: (c) => brl(c.credito) },
+            { chave: "id", rotulo: "Deve no fiado", formulario: false, direita: true, exibir: (c) => <span className={saldoFiado(e.fiado ?? [], c.id) > 0 ? "font-bold text-acao" : "text-mudo"}>{brl(saldoFiado(e.fiado ?? [], c.id))}</span> },
           ]}
         />
       )}
@@ -80,11 +65,14 @@ export default function CadastrosPage() {
           titulo="Mesa"
           itens={e.mesas}
           novo={() => ({ id: "", numero: (e.mesas.at(-1)?.numero ?? 0) + 1, area: "Salão", lugares: 4 })}
-          aoSalvar={(m) => salvarRegistro("mesas", m)}
+          aoSalvar={(m) => {
+            if (e.mesas.some((x) => x.numero === Number(m.numero) && x.id !== m.id)) return alert(`Já existe a mesa ${m.numero}.`);
+            salvarRegistro("mesas", { ...m, numero: Number(m.numero) });
+          }}
           aoExcluir={(m) => excluirRegistro("mesas", m.id)}
           campos={[
             { chave: "numero", rotulo: "Número", tipo: "numero", obrigatorio: true },
-            { chave: "area", rotulo: "Área do salão", obrigatorio: true },
+            { chave: "area", rotulo: "Localização", tipo: "opcao", obrigatorio: true, opcoes: LOCALIZACOES.map((l) => ({ valor: l, rotulo: l })) },
             { chave: "lugares", rotulo: "Lugares", tipo: "numero" },
           ]}
         />

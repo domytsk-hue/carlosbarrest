@@ -1,14 +1,15 @@
 "use client";
 
 import clsx from "clsx";
-import { Armchair } from "lucide-react";
-import { useState } from "react";
+import { Armchair, MapPin, Search } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Lancador } from "@/components/pedido/lancador";
 import { PainelConta } from "@/components/pedido/painel-conta";
-import { Modal, Titulo, useRelogio, Vazio } from "@/components/ui";
+import { Botao, Modal, Titulo, useRelogio, Vazio } from "@/components/ui";
 import { brl, duracao, total } from "@/lib/dominio/calculos";
-import type { Conta, Mesa } from "@/lib/dominio/tipos";
-import { abrirConta, descartarSeVazia } from "@/lib/loja/acoes";
+import { rotuloMesa } from "@/lib/dominio/rotulos";
+import { LOCALIZACOES, type Conta, type Mesa } from "@/lib/dominio/tipos";
+import { abrirConta, descartarSeVazia, mudarLocalizacao } from "@/lib/loja/acoes";
 import { useLoja } from "@/lib/loja/loja";
 
 type Estado = "fechamento" | "ocupada" | "livre";
@@ -20,13 +21,29 @@ export default function MesasPage() {
   const [selecionada, setSelecionada] = useState<string | null>(null);
   const [lancando, setLancando] = useState<{ contaId: string; numero: number } | null>(null);
   const [area, setArea] = useState("Todas");
+  const [numero, setNumero] = useState("");
+  const [aviso, setAviso] = useState("");
+  const [organizando, setOrganizando] = useState(false);
+  const campoNumero = useRef<HTMLInputElement>(null);
+
+  // Digitar um número em qualquer lugar da tela leva para a busca da mesa
+  useEffect(() => {
+    const aoTeclar = (ev: KeyboardEvent) => {
+      if (!/^[0-9]$/.test(ev.key) || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+      const alvo = ev.target as HTMLElement;
+      if (alvo.closest("input, textarea, select, [role=dialog]")) return;
+      campoNumero.current?.focus();
+    };
+    window.addEventListener("keydown", aoTeclar);
+    return () => window.removeEventListener("keydown", aoTeclar);
+  }, []);
 
   const contaPorMesa = new Map<string, Conta>(contas.map((c) => [c.mesaId!, c]));
   const estadoDa = (m: Mesa): Estado => {
     const c = contaPorMesa.get(m.id);
     return !c ? "livre" : c.status === "fechamento" ? "fechamento" : "ocupada";
   };
-  const areas = ["Todas", ...new Set(mesas.map((m) => m.area))];
+  const areas = ["Todas", ...new Set([...LOCALIZACOES, ...mesas.map((m) => m.area)])];
   const visiveis = mesas.filter((m) => area === "Todas" || m.area === area);
   const grupos: { estado: Estado; rotulo: string }[] = [
     { estado: "fechamento", rotulo: "Em fechamento" },
@@ -45,6 +62,18 @@ export default function MesasPage() {
 
   const ocupadas = mesas.filter((m) => estadoDa(m) !== "livre").length;
 
+  function irParaNumero() {
+    const m = mesas.find((x) => String(x.numero) === numero.trim());
+    if (!m) {
+      setAviso(numero ? `Mesa ${numero} não existe` : "");
+      return;
+    }
+    setAviso("");
+    setNumero("");
+    campoNumero.current?.blur();
+    tocar(m);
+  }
+
   return (
     <div className="mx-auto max-w-[1400px]">
       <Titulo
@@ -54,6 +83,34 @@ export default function MesasPage() {
           </>
         }
         acoes={
+          <div className="flex flex-wrap items-center gap-2">
+          <form
+            onSubmit={(ev) => {
+              ev.preventDefault();
+              irParaNumero();
+            }}
+            className="flex items-center gap-1.5 rounded-full bg-card py-1 pl-3 pr-1 shadow-card"
+          >
+            <Search size={15} className="text-mudo" />
+            <input
+              ref={campoNumero}
+              value={numero}
+              onChange={(ev) => { setNumero(ev.target.value.replace(/\D/g, "").slice(0, 3)); setAviso(""); }}
+              inputMode="numeric"
+              placeholder="Nº da mesa"
+              aria-label="Número da mesa"
+              className="num w-[92px] bg-transparent text-[14px] font-bold outline-none placeholder:font-medium placeholder:text-mudo"
+            />
+            <button type="submit" className="rounded-full bg-acao px-3 py-1.5 text-[12px] font-bold text-white">
+              Abrir
+            </button>
+          </form>
+          <button
+            onClick={() => setOrganizando((o) => !o)}
+            className={clsx("flex items-center gap-1.5 rounded-full px-3 py-2 text-[12.5px] font-semibold shadow-card", organizando ? "bg-tinta text-fundo" : "bg-card")}
+          >
+            <MapPin size={15} /> Localização
+          </button>
           <div className="flex gap-1 rounded-full bg-card p-1 shadow-card">
             {areas.map((a) => (
               <button key={a} onClick={() => setArea(a)} className={clsx("rounded-full px-3 py-1.5 text-[12.5px] font-semibold", a === area ? "bg-tinta text-fundo" : "text-mudo")}>
@@ -61,10 +118,46 @@ export default function MesasPage() {
               </button>
             ))}
           </div>
+          </div>
         }
       >
         Mesas
       </Titulo>
+      {aviso && <p className="-mt-2 mb-3 text-[12.5px] font-semibold text-st-cancelado">{aviso}</p>}
+
+      {organizando && (
+        <div className="mb-4 rounded-[20px] bg-card p-4 shadow-card">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <p className="flex-1 text-[13px] text-mudo">Escolha onde cada mesa está hoje. Os pedidos e o histórico continuam ligados à mesa.</p>
+            {LOCALIZACOES.map((l) => (
+              <Botao key={l} variante="secundario" tamanho="sm" onClick={() => confirm(`Colocar as ${visiveis.length} mesas mostradas em ${l}?`) && visiveis.forEach((m) => mudarLocalizacao(m.id, l))}>
+                Todas em {l}
+              </Botao>
+            ))}
+            <Botao tamanho="sm" onClick={() => setOrganizando(false)}>
+              Pronto
+            </Botao>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {visiveis.map((m) => (
+              <div key={m.id} className="flex items-center gap-2 rounded-2xl border border-linha px-2.5 py-2">
+                <span className="num w-8 text-[15px] font-extrabold">{m.numero}</span>
+                <div className="flex flex-1 gap-1">
+                  {LOCALIZACOES.map((l) => (
+                    <button
+                      key={l}
+                      onClick={() => mudarLocalizacao(m.id, l)}
+                      className={clsx("flex-1 rounded-lg py-1 text-[11px] font-bold", m.area === l ? "bg-acao text-white" : "bg-secundario text-mudo")}
+                    >
+                      {l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-[1fr_480px]">
         <div className="space-y-4">
@@ -96,7 +189,9 @@ export default function MesasPage() {
                         {c ? (
                           <>
                             <span className="num mt-auto text-[13px] font-bold text-acao">{brl(total(c))}</span>
-                            <span className="text-[11px] text-mudo">{duracao(c.abertaEm, agora)}</span>
+                            <span className="text-[11px] text-mudo">
+                              {m.area} · {duracao(c.abertaEm, agora)}
+                            </span>
                           </>
                         ) : (
                           <span className="mt-auto text-[11.5px] text-mudo">{m.area}</span>
@@ -128,7 +223,7 @@ export default function MesasPage() {
         aoFechar={() => {
           if (lancando) descartarSeVazia(lancando.contaId);
           setLancando(null);
-        }} titulo={`Mesa ${lancando?.numero} · novo pedido`} largura="xl">
+        }} titulo={`${rotuloMesa(mesas.find((m) => m.numero === lancando?.numero))} · novo pedido`} largura="xl">
         {lancando && <Lancador contaId={lancando.contaId} titulo={`Mesa ${lancando.numero}`} totalAtual={0} aoEnviar={() => setLancando(null)} />}
       </Modal>
     </div>

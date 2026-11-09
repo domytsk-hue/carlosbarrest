@@ -9,7 +9,7 @@ export const ARTIGOS: Artigo[] = [
     titulo: "Abrir e fechar o caixa",
     modulo: "caixa",
     resumo: "Todo dia começa com a abertura do caixa e termina com a conferência.",
-    passos: ["Em Caixa, toque em Abrir caixa e informe o fundo de troco.", "Durante o dia, use Sangria para retirar dinheiro e Suprimento para colocar.", "No fim do expediente, toque em Fechar, conte o dinheiro e informe o valor de cada forma.", "O sistema mostra a diferença entre o contado e o esperado e imprime o resumo."],
+    passos: ["No primeiro acesso depois do fechamento, o sistema pede a abertura: confira o dinheiro de troco e informe o valor. Esse fundo não conta como venda.", "Durante o dia, use Sangria para retirar dinheiro e Suprimento para colocar.", "No fechamento, o sistema mostra o total recebido e o valor de cada modalidade. Informe o conferido na nota da maquininha, no extrato do Pix e no dinheiro contado.", "Marque que conferiu e toque em Encerrar: o caixa fecha e sai o relatório do dia com o faturamento e a comissão arrecadada."],
     dica: "Despesas pagas com o dinheiro do caixa (gelo, gás) entram em Despesa, para não virar diferença no fechamento.",
   },
   {
@@ -17,7 +17,7 @@ export const ARTIGOS: Artigo[] = [
     titulo: "Abrir mesa e lançar pedidos",
     modulo: "mesas",
     resumo: "Lançamento rápido pelo mapa do salão (F3).",
-    passos: ["Toque na mesa livre (verde) para abrir.", "Busque o produto pelo nome ou código e toque para adicionar.", "Use Observação para pedidos como \"sem cebola\".", "Toque em Enviar: cada setor (cozinha, bar) recebe só o que é dele."],
+    passos: ["Digite o número da mesa (1 a 40) ou toque nela para abrir.", "Busque o produto pelo nome ou código e toque para adicionar.", "Use Observação para pedidos como \"sem cebola\".", "Toque em Enviar: cada setor (cozinha, bar) recebe só o que é dele."],
     dica: "Mesa amarela está em fechamento (conta pedida). Vermelha está ocupada.",
   },
   {
@@ -25,7 +25,28 @@ export const ARTIGOS: Artigo[] = [
     titulo: "Fechar conta, dividir e receber",
     modulo: "mesas",
     resumo: "Parcial, divisão por pessoa e várias formas de pagamento.",
-    passos: ["Na mesa, toque em Fechar conta.", "Confira serviço (10%) e couvert; desconto pede motivo.", "Use Dividir para separar por pessoas ou por itens.", "Lance um pagamento por forma (ex.: parte no Pix, parte no cartão). A conta fecha quando o valor bate."],
+    passos: ["Na mesa, toque em Receber (F6).", "A tela mostra o valor sem comissão e o total com a comissão. O cliente escolhe: Integral, Sem comissão ou outro valor (ex.: R$ 5,00).", "Use a Calculadora para fazer contas sem sair do recebimento, e Dividir para separar por pessoas.", "Lance um pagamento por forma (ex.: parte no Pix, parte no cartão). A conta fecha quando o valor bate."],
+  },
+  {
+    id: "atalhos-mesa",
+    titulo: "Atalhos de teclado na conta da mesa",
+    modulo: "mesas",
+    resumo: "F7 imprime, F6 recebe, F2 observação, Ctrl+J transfere.",
+    passos: ["F7: imprime a conta da mesa selecionada.", "F6: abre o fechamento da conta com pagamento.", "F2: observação do item selecionado (toque na linha do item para selecionar).", "Ctrl+J: transfere a mesa. Se a mesa de destino estiver ocupada, o sistema pergunta antes de juntar as contas."],
+  },
+  {
+    id: "localizacao-mesa",
+    titulo: "Mudar a localização das mesas",
+    modulo: "mesas",
+    resumo: "Cada mesa pode estar no Salão, na Varanda ou na Rua.",
+    passos: ["Em Mesas, toque em Localização.", "Escolha Salão, Varanda ou Rua em cada mesa (ou mude todas as mostradas de uma vez).", "Os pedidos e o histórico continuam na mesa; a localização aparece junto do número."],
+  },
+  {
+    id: "fiado",
+    titulo: "Fiado dos clientes",
+    modulo: "contas",
+    resumo: "Quem compra para pagar depois, com saldo e pagamentos parciais.",
+    passos: ["Em Contas > Fiado, cadastre o cliente. Só o nome é obrigatório.", "Para colocar uma mesa no fiado, receba a mesa com a forma Fiado e escolha o cliente.", "Quando o cliente pagar (tudo ou parte), abra o nome dele e toque em Registrar pagamento.", "O histórico mostra cada compra com a mesa de origem e cada pagamento, mesmo depois de quitar."],
   },
   {
     id: "comandas",
@@ -53,7 +74,7 @@ export const ARTIGOS: Artigo[] = [
     id: "kds",
     titulo: "Monitor da cozinha (KDS)",
     modulo: "cozinha",
-    resumo: "Pedidos na tela da cozinha e do bar, em ordem de chegada (F6).",
+    resumo: "Pedidos na tela da cozinha e do bar, em ordem de chegada.",
     passos: ["Abra Cozinha na TV ou tablet da cozinha e escolha o setor.", "Toque no pedido para marcar Em preparo e depois Pronto.", "O cartão muda de cor conforme o tempo de espera."],
   },
   {
@@ -75,7 +96,7 @@ export const ARTIGOS: Artigo[] = [
     titulo: "Contas a pagar e a receber",
     modulo: "contas",
     resumo: "Financeiro com vencimentos, parcelas e DRE.",
-    passos: ["Em Nova conta (Ctrl+Ins), informe valor, vencimento e categoria do plano de contas.", "Parcelas e contas recorrentes (aluguel, internet) são criadas de uma vez.", "Em Contas, marque e dê baixa; juros e multa entram no valor pago.", "A DRE em Relatórios mostra o resultado do mês."],
+    passos: ["Em Contas > Contas a pagar e receber, toque em Lançar conta e informe valor, vencimento e categoria do plano de contas.", "Parcelas e contas recorrentes (aluguel, internet) são criadas de uma vez.", "Em Contas, marque e dê baixa; juros e multa entram no valor pago.", "A DRE em Relatórios mostra o resultado do mês."],
   },
   {
     id: "impressoras",
@@ -110,7 +131,7 @@ export const ARTIGOS: Artigo[] = [
     titulo: "Emitir NFC-e",
     modulo: "configuracoes",
     resumo: "Nota fiscal do consumidor ao fechar a conta.",
-    passos: ["Em Configurações > Fiscal, preencha CNPJ, IE e regime e escolha o ambiente.", "Cadastre NCM e CFOP nos produtos.", "Ao fechar a conta, toque em Emitir NFC-e (ou deixe automático)."],
+    passos: ["Em Configurações > Fiscal, preencha CNPJ, IE e regime e escolha o ambiente.", "Ao fechar a conta, toque em Emitir NFC-e (ou deixe automático)."],
   },
 ];
 

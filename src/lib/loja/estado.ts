@@ -16,6 +16,8 @@ import type {
   MovimentoEstoque,
   PlanoConta,
   Mesa,
+  MovFiado,
+  Dispositivo,
   Produto,
   Promocao,
   RespostaBot,
@@ -45,9 +47,22 @@ export type Config = {
   fiscal: ConfigFiscal;
   marketplaces: Record<"ifood" | "aiqfome", { ativo: boolean; lojaId: string; aceiteAutomatico: boolean }>;
   chatbot: { ativo: boolean; saudacao: string; horario: string; foraDoHorario: string; respostas: RespostaBot[] };
+  /** Estoque ligado. Fica desligado até o restaurante começar a usar (previsto para março). */
+  estoqueAtivo: boolean;
+  /** Só aparelhos autorizados em Configurações abrem o app do garçom */
+  exigirAutorizacao: boolean;
 };
 
-export type Impressora = { id: string; /** Nome igual ao do impressoras.json do agente (o IP fica lá) */ nome: string; setores: ("caixa" | "cozinha" | "bar")[]; colunas: number };
+export type Impressora = {
+  id: string;
+  /** Nome igual ao do impressoras.json do agente (o IP fica lá) */
+  nome: string;
+  setores: ("caixa" | "cozinha" | "bar")[];
+  colunas: number;
+  /** Onde fica e como está ligada (ex.: "Balcão do caixa · rede 192.168.0.50") */
+  local?: string;
+  ativa?: boolean;
+};
 export type ConfigImpressao = { agenteAtivo: boolean; agenteUrl: string; impressoras: Impressora[] };
 export type ConfigFiscal = {
   emissor: "nenhum" | "focusnfe";
@@ -75,6 +90,10 @@ export type Estado = {
   sessaoAtivaId?: string;
   usuarioId: string;
   contas: Conta[];
+  /** Fiado: compras lançadas e pagamentos de cada cliente */
+  fiado: MovFiado[];
+  /** Aparelhos que usam o sistema e se estão autorizados */
+  dispositivos: Dispositivo[];
   chamados: Chamado[];
   insumos: Insumo[];
   movimentosEstoque: MovimentoEstoque[];
@@ -89,7 +108,13 @@ export type Estado = {
   auditoria: Auditoria[];
 };
 
-export const VERSAO = 1;
+export const VERSAO = 2;
+
+/** Mesas numeradas de 1 a 40 (requisito MES-01). */
+export const TOTAL_MESAS = 40;
+
+export const mesasPadrao = (): Mesa[] =>
+  Array.from({ length: TOTAL_MESAS }, (_, i) => ({ id: `m${i + 1}`, numero: i + 1, area: "Salão", lugares: 4 }));
 
 const PLANO_SEED: PlanoConta[] = [
   { id: "pc1", nome: "Vendas no salão e delivery", tipo: "receita", grupo: "receita" },
@@ -142,9 +167,9 @@ export function estadoInicial(): Estado {
         agenteAtivo: false,
         agenteUrl: "http://localhost:9123",
         impressoras: [
-          { id: "imp1", nome: "caixa", setores: ["caixa"], colunas: 48 },
-          { id: "imp2", nome: "cozinha", setores: ["cozinha"], colunas: 48 },
-          { id: "imp3", nome: "bar", setores: ["bar"], colunas: 48 },
+          { id: "imp1", nome: "caixa", setores: ["caixa"], colunas: 48, local: "Balcão do caixa", ativa: true },
+          { id: "imp2", nome: "cozinha", setores: ["cozinha"], colunas: 48, local: "Cozinha", ativa: true },
+          { id: "imp3", nome: "bar", setores: ["bar"], colunas: 48, local: "Bar", ativa: true },
         ],
       },
       maquininha: { provedor: "manual", serialPos: "" },
@@ -163,15 +188,12 @@ export function estadoInicial(): Estado {
           { id: "rb2", gatilhos: "estacionamento, estacionar", resposta: "Temos estacionamento em frente ao restaurante." },
         ],
       },
+      estoqueAtivo: false,
+      exigirAutorizacao: false,
     },
     categorias: CATEGORIAS_SEED,
     produtos: comFichasExemplo(PRODUTOS_SEED),
-    mesas: Array.from({ length: 30 }, (_, i) => ({
-      id: `m${i + 1}`,
-      numero: i + 1,
-      area: i < 20 ? "Salão" : "Varanda",
-      lugares: 4,
-    })),
+    mesas: mesasPadrao(),
     clientes: [],
     bairros: [
       { id: "b1", nome: "Missão", taxa: 5 },
@@ -182,8 +204,8 @@ export function estadoInicial(): Estado {
     ],
     funcionarios: [
       { id: "f1", nome: "Admin", funcao: "dono", comissao: 0, ativo: true },
-      { id: "f2", nome: "João", funcao: "garcom", comissao: 100, ativo: true },
-      { id: "f3", nome: "Maria", funcao: "garcom", comissao: 100, ativo: true },
+      { id: "f2", nome: "João", funcao: "garcom", comissao: 100, comissaoTipo: "percentual", ativo: true },
+      { id: "f3", nome: "Maria", funcao: "garcom", comissao: 100, comissaoTipo: "percentual", ativo: true },
       { id: "f4", nome: "Pedro", funcao: "entregador", comissao: 4, ativo: true },
       { id: "f5", nome: "Ana", funcao: "caixa", comissao: 0, ativo: true },
     ],
@@ -203,6 +225,8 @@ export function estadoInicial(): Estado {
     sessoesCaixa: [],
     usuarioId: "f1",
     contas: [],
+    fiado: [],
+    dispositivos: [],
     chamados: [],
     insumos: INSUMOS_SEED,
     movimentosEstoque: [],

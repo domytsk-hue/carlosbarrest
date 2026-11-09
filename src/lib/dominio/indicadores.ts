@@ -1,11 +1,11 @@
-import { arred, diaLocal, itensValidos, total } from "./calculos";
+import { arred, diaLocal, itensValidos, total, valorServico } from "./calculos";
 import type { Canal, Conta, FormaPagamento, Funcionario } from "./tipos";
 
 export const ROTULO_CANAL: Record<Canal, string> = {
   mesa: "Salão",
   comanda: "Comandas",
   balcao: "Balcão",
-  pdv: "PDV",
+  pdv: "PDV (antigo)",
   entrega: "Entrega (telefone)",
   delivery: "Delivery próprio",
   ifood: "iFood",
@@ -62,7 +62,8 @@ export function porAtendente(contas: Conta[], funcionarios: Funcionario[]) {
       const id = i.atendenteId ?? "—";
       const x = m.get(id) ?? { qtd: 0, valor: 0, servico: 0 };
       const v = i.preco * i.qtd;
-      m.set(id, { qtd: x.qtd + i.qtd, valor: arred(x.valor + v), servico: arred(x.servico + (v / sub) * ((sub * c.servicoPct) / 100)) });
+      // Comissão que o cliente pagou de fato (integral, parcial ou zero), dividida pelos itens de cada atendente
+      m.set(id, { qtd: x.qtd + i.qtd, valor: arred(x.valor + v), servico: arred(x.servico + (v / sub) * valorServico(c)) });
     }
   }
   return [...m.entries()].map(([id, v]) => ({ id, nome: id === "qrcode" ? "Cardápio QR" : id === "online" ? "Delivery online" : (funcionarios.find((f) => f.id === id)?.nome ?? "—"), ...v })).sort((a, b) => b.valor - a.valor);
