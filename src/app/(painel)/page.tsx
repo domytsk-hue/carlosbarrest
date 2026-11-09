@@ -47,7 +47,12 @@ export default function Dashboard() {
   const agora = useRelogio(60000);
   const hoje = diaLocal();
   const vendas = vendasNoPeriodo(e.contas, { de: hoje, ate: hoje });
-  const semanaPassada = vendasNoPeriodo(e.contas, { de: diasAtras(7), ate: diasAtras(7) });
+  // Compara com a semana passada até o mesmo horário (não com o dia inteiro)
+  const minutoAgora = new Date(agora).getHours() * 60 + new Date(agora).getMinutes();
+  const semanaPassada = vendasNoPeriodo(e.contas, { de: diasAtras(7), ate: diasAtras(7) }).filter((c) => {
+    const d = new Date(c.fechadaEm!);
+    return d.getHours() * 60 + d.getMinutes() <= minutoAgora;
+  });
   const fat = somaVendas(vendas);
   const fatAnt = somaVendas(semanaPassada);
   const variacao = fatAnt ? ((fat - fatAnt) / fatAnt) * 100 : null;
@@ -89,10 +94,11 @@ export default function Dashboard() {
           icone={Wallet}
           detalhe={
             variacao === null ? (
-              "sem vendas no mesmo dia da semana passada"
+              "sem vendas até esta hora na semana passada"
             ) : (
               <span className="inline-flex items-center gap-1 font-semibold">
                 {variacao >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                {variacao >= 0 ? "+" : "−"}
                 {Math.abs(variacao).toFixed(1).replace(".", ",")}% vs. semana passada
               </span>
             )

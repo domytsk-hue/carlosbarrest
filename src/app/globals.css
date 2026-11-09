@@ -165,3 +165,13 @@ body {
   border-top: 1px dashed #000;
   margin: 4px 0;
 }
+
+/* No celular, campos com fonte menor que 16px fazem o iPhone dar zoom ao tocar
+   e a tela "pula". Fica 16px no toque e volta ao tamanho do layout no desktop. */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}

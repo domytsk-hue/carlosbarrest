@@ -19,7 +19,7 @@ export default function ConfiguracoesPage() {
   function exportar() {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([JSON.stringify(obterEstado(), null, 1)], { type: "application/json" }));
-    a.download = `carlos-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `carlos-backup-${new Date().toLocaleDateString("sv-SE")}.json`;
     a.click();
   }
 

@@ -12,12 +12,15 @@ const CHAVE = "carlos:estado";
 type Ouvinte = () => void;
 
 let estado: Estado | null = null;
+/** Último texto gravado por esta aba (para perceber gravações de outras abas). */
+let ultimoGravado: string | null = null;
 const ouvintes = new Set<Ouvinte>();
 
 function carregar(): Estado {
   if (typeof window === "undefined") return estadoInicial();
   try {
     const bruto = localStorage.getItem(CHAVE);
+    ultimoGravado = bruto;
     if (bruto) {
       const salvo = JSON.parse(bruto) as Estado;
       // Campos novos de versões futuras entram com o valor padrão
@@ -29,7 +32,9 @@ function carregar(): Estado {
 
 function salvar(e: Estado) {
   try {
-    localStorage.setItem(CHAVE, JSON.stringify(e));
+    const bruto = JSON.stringify(e);
+    localStorage.setItem(CHAVE, bruto);
+    ultimoGravado = bruto;
   } catch {}
 }
 
@@ -39,6 +44,14 @@ export function obterEstado(): Estado {
 }
 
 export function atualizar(fn: (e: Estado) => Estado) {
+  // Se outra aba gravou e o evento "storage" ainda não chegou, parte do que
+  // está gravado, para não sobrescrever o pedido que ela acabou de lançar.
+  if (estado && typeof window !== "undefined") {
+    try {
+      const bruto = localStorage.getItem(CHAVE);
+      if (bruto !== null && bruto !== ultimoGravado) estado = carregar();
+    } catch {}
+  }
   estado = fn(obterEstado());
   salvar(estado);
   ouvintes.forEach((o) => o());

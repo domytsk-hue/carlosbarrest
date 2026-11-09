@@ -51,7 +51,8 @@ export const hora = (iso: string) => new Date(iso).toLocaleTimeString("pt-BR", {
 
 export const dataCurta = (iso: string) => new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 
-export const hojeISO = () => new Date().toISOString().slice(0, 10);
+/** Data de hoje no fuso do aparelho (AAAA-MM-DD). */
+export const hojeISO = () => new Date().toLocaleDateString("sv-SE");
 
 export const mesmoDia = (iso: string, dia: string) => new Date(iso).toLocaleDateString("sv-SE") === dia;
 
