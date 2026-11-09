@@ -104,3 +104,49 @@ body {
   border-radius: 16px;
   padding: 6px 10px;
 }
+
+/* Impressão em bobina 80 mm */
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 3mm;
+  }
+  body * {
+    visibility: hidden !important;
+  }
+  #area-impressao,
+  #area-impressao * {
+    visibility: visible !important;
+  }
+  #area-impressao {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 74mm;
+    background: #fff;
+  }
+}
+.cupom {
+  font-family: "Courier New", monospace;
+  font-size: 11px;
+  color: #000;
+  line-height: 1.35;
+}
+.cupom .c {
+  text-align: center;
+}
+.cupom .g {
+  font-weight: 700;
+  font-size: 13px;
+}
+.cupom .l {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.cupom hr {
+  border: 0;
+  border-top: 1px dashed #000;
+  margin: 4px 0;
+}
