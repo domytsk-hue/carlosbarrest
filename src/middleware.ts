@@ -8,6 +8,11 @@ const PUBLICAS = ["/m/", "/cardapio", "/api/webhooks"];
 export async function middleware(request: NextRequest) {
   if (!supabaseConfigurado) return NextResponse.next();
 
+  const caminho = request.nextUrl.pathname;
+  // Páginas do cliente (cardápio da mesa e delivery) e webhooks não
+  // dependem do login do painel: nem consultam o Supabase.
+  if (PUBLICAS.some((p) => caminho.startsWith(p))) return NextResponse.next();
+
   let response = NextResponse.next({ request });
   const sb = createServerClient(SUPABASE_URL, SUPABASE_KEY, {
     cookies: {
@@ -20,21 +25,19 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  const {
-    data: { user },
-  } = await sb.auth.getUser();
-
-  const caminho = request.nextUrl.pathname;
-  // Páginas do cliente (cardápio da mesa e delivery) e webhooks são públicos
-  if (PUBLICAS.some((p) => caminho.startsWith(p))) return response;
+  // getClaims confere a assinatura do login aqui mesmo, sem ir ao servidor do
+  // Supabase a cada clique (getUser fazia uma ida e volta por requisição).
+  // Quando o login vence, ele renova sozinho e grava os cookies novos.
+  const { data } = await sb.auth.getClaims();
+  const logado = Boolean(data?.claims?.sub);
 
   const naLogin = caminho.startsWith("/login");
-  if (!user && !naLogin) {
+  if (!logado && !naLogin) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
-  if (user && naLogin) {
+  if (logado && naLogin) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);
@@ -43,5 +46,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|icon.png|logo.svg|categorias/|.*\\.(?:png|svg|jpg|webp)$).*)"],
+  matcher: ["/((?!_next/static|_next/image|icon.png|logo.svg|categorias/|.*\\.(?:png|svg|jpg|webp|ico|txt|json|webmanifest)$).*)"],
 };

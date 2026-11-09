@@ -12,13 +12,12 @@ import { StatusBar } from "./status-bar";
 import { SupportButton } from "./support-button";
 import { ThemeToggle } from "./theme-toggle";
 import { AreaImpressao } from "../impressao";
-import type { Sessao } from "@/lib/sessao";
 
 function ativo(pathname: string, slug: string) {
   return slug === "" ? pathname === "/" : pathname === "/" + slug || pathname.startsWith("/" + slug + "/");
 }
 
-export function AppShell({ sessao, children }: { sessao: Sessao; children: React.ReactNode }) {
+export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [menuAberto, setMenuAberto] = useState(false);
   useAtalhos();
@@ -113,7 +112,7 @@ export function AppShell({ sessao, children }: { sessao: Sessao; children: React
 
         <main className="flex-1 px-3 pb-24 pt-2 sm:px-5">{children}</main>
 
-        <StatusBar sessao={sessao} />
+        <StatusBar />
       </div>
 
       <SupportButton />

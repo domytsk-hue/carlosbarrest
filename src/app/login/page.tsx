@@ -7,6 +7,7 @@ import { useState } from "react";
 import { LogIn } from "lucide-react";
 import { supabaseConfigurado } from "@/lib/supabase/config";
 import { criarClienteNavegador } from "@/lib/supabase/client";
+import { limparSessao } from "@/lib/sessao";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,6 +23,7 @@ export default function LoginPage() {
     const { error } = await criarClienteNavegador().auth.signInWithPassword({ email, password: senha });
     setEnviando(false);
     if (error) return setErro("Usuário ou senha incorretos.");
+    limparSessao();
     router.replace("/");
     router.refresh();
   }

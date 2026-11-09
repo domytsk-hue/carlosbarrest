@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { CircleUserRound, Wallet, Wifi, WifiOff } from "lucide-react";
-import type { Sessao } from "@/lib/sessao";
+import { useSessao, type Sessao } from "@/lib/sessao";
 import { useLoja } from "@/lib/loja/loja";
 import { ROTULO_FUNCAO } from "@/lib/sessao-rotulos";
 
 /** Barra de status: conexão, usuário logado e caixa ativo, sempre visíveis. */
-export function StatusBar({ sessao }: { sessao: Sessao }) {
+const CARREGANDO: Sessao = { nome: "…", funcao: "…", restaurante: "", restauranteId: null, caixa: null, demo: false };
+
+export function StatusBar() {
+  const sessao = useSessao() ?? CARREGANDO;
   const [online, setOnline] = useState(true);
   // No modo demonstração, usuário e caixa vêm da loja local deste aparelho
   const usuario = useLoja((e) => e.funcionarios.find((f) => f.id === e.usuarioId));

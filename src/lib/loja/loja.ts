@@ -24,13 +24,48 @@ function carregar(recebido?: string | null): Estado {
     if (bruto) {
       const salvo = JSON.parse(bruto) as Estado;
       // Campos novos de versões futuras entram com o valor padrão
-      return { ...estadoInicial(), ...salvo, config: { ...estadoInicial().config, ...salvo.config }, versao: VERSAO };
+      const padrao = estadoInicial();
+      return { ...padrao, ...salvo, config: { ...padrao.config, ...salvo.config }, versao: VERSAO };
     }
   } catch {}
   return estadoInicial();
 }
 
+// Gravar no localStorage transforma o estado inteiro em texto, o que pesa
+// quando há muitas contas e auditoria. Em vez de gravar a cada tecla ou clique,
+// junta as mudanças e grava no máximo uma vez a cada 100 ms (e sempre antes de
+// a aba fechar ou ir para segundo plano). A tela atualiza na hora, sem esperar.
+const INTERVALO_GRAVACAO = 100;
+let gravacaoPendente: ReturnType<typeof setTimeout> | null = null;
+
+function agendarGravacao() {
+  if (gravacaoPendente || typeof window === "undefined") return;
+  gravacaoPendente = setTimeout(gravarPendente, INTERVALO_GRAVACAO);
+}
+
+function gravarPendente() {
+  if (gravacaoPendente) {
+    clearTimeout(gravacaoPendente);
+    gravacaoPendente = null;
+    if (estado) salvar(estado);
+  }
+}
+
+let gravacaoNaSaida = false;
+function gravarAoSair() {
+  if (gravacaoNaSaida || typeof window === "undefined") return;
+  gravacaoNaSaida = true;
+  window.addEventListener("pagehide", gravarPendente);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") gravarPendente();
+  });
+}
+
 function salvar(e: Estado) {
+  if (gravacaoPendente) {
+    clearTimeout(gravacaoPendente);
+    gravacaoPendente = null;
+  }
   try {
     const bruto = JSON.stringify(e);
     localStorage.setItem(CHAVE, bruto);
@@ -42,6 +77,7 @@ export function obterEstado(): Estado {
   if (!estado) {
     estado = carregar();
     base = estado;
+    gravarAoSair();
   }
   return estado;
 }
@@ -120,7 +156,7 @@ export function atualizar(fn: (e: Estado) => Estado) {
     } catch {}
   }
   estado = fn(obterEstado());
-  salvar(estado);
+  agendarGravacao();
   ouvintes.forEach((o) => o());
 }
 
