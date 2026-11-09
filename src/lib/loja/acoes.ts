@@ -1,6 +1,7 @@
 "use client";
 
 import { arred, restante, total } from "../dominio/calculos";
+import { consumo } from "../dominio/estoque";
 import type { Canal, Conta, Endereco, FormaPagamentoOnline, Item, MovimentoCaixa, Pagamento, StatusEntrega, StatusPreparo, TipoMovimento } from "../dominio/tipos";
 import type { Config, Estado } from "./estado";
 import { atualizar, novoId, obterEstado } from "./loja";
@@ -24,6 +25,25 @@ export function registrarAuditoria(acao: string, detalhes?: string) {
 
 function mudarConta(id: string, fn: (c: Conta) => Conta) {
   atualizar((e) => ({ ...e, contas: e.contas.map((c) => (c.id === id ? fn(c) : c)) }));
+}
+
+/**
+ * Baixa (sinal 1) ou devolve (sinal −1) no estoque os insumos da ficha técnica
+ * dos itens vendidos.
+ */
+function comBaixa(e: Estado, itens: { produtoId: string; qtd: number }[], sinal: 1 | -1, documento: string): Estado {
+  const c = consumo(itens, e.produtos);
+  if (!c.size) return e;
+  const em = agora();
+  const movs = [...c.entries()].map(([insumoId, q]) => ({
+    id: novoId("me"),
+    insumoId,
+    tipo: sinal === 1 ? ("venda" as const) : ("estorno" as const),
+    qtd: -sinal * q,
+    em,
+    documento,
+  }));
+  return { ...e, movimentosEstoque: [...e.movimentosEstoque, ...movs] };
 }
 
 // ---------------------------------------------------------------------------
@@ -95,13 +115,18 @@ export function lancarItens(contaId: string, itens: ItemNovo[], atendenteId?: st
         preparo: "pendente",
       };
     });
-    return {
-      ...e,
-      seq: { ...e.seq, pedido: numero },
-      contas: e.contas.map((c) =>
-        c.id === contaId ? { ...c, itens: [...c.itens, ...novos], status: c.status === "fechamento" ? "aberta" : c.status } : c,
-      ),
-    };
+    return comBaixa(
+      {
+        ...e,
+        seq: { ...e.seq, pedido: numero },
+        contas: e.contas.map((c) =>
+          c.id === contaId ? { ...c, itens: [...c.itens, ...novos], status: c.status === "fechamento" ? "aberta" : c.status } : c,
+        ),
+      },
+      novos,
+      1,
+      `Pedido ${numero}`,
+    );
   });
   return numero;
 }
@@ -118,12 +143,21 @@ export function cancelarItem(contaId: string, itemId: string, motivo: string) {
           : c,
       ),
     };
-    return comAuditoria(e2, "item.cancelado", `Conta ${conta?.numero}: ${item?.qtd}x ${item?.nome} — ${motivo}`);
+    const e3 = item && !item.cancelado && conta?.status !== "cancelada" ? comBaixa(e2, [item], -1, `Cancelamento conta ${conta?.numero}`) : e2;
+    return comAuditoria(e3, "item.cancelado", `Conta ${conta?.numero}: ${item?.qtd}x ${item?.nome} — ${motivo}`);
   });
 }
 
 export function alterarQtdItem(contaId: string, itemId: string, qtd: number) {
-  mudarConta(contaId, (c) => ({ ...c, itens: c.itens.map((i) => (i.id === itemId ? { ...i, qtd: Math.max(1, qtd) } : i)) }));
+  atualizar((e) => {
+    const conta = e.contas.find((c) => c.id === contaId);
+    const item = conta?.itens.find((i) => i.id === itemId);
+    if (!conta || !item) return e;
+    const nova = Math.max(1, qtd);
+    const e2 = { ...e, contas: e.contas.map((c) => (c.id === contaId ? { ...c, itens: c.itens.map((i) => (i.id === itemId ? { ...i, qtd: nova } : i)) } : c)) };
+    const delta = nova - item.qtd;
+    return delta ? comBaixa(e2, [{ produtoId: item.produtoId, qtd: Math.abs(delta) }], delta > 0 ? 1 : -1, `Conta ${conta.numero}`) : e2;
+  });
 }
 
 export function aplicarDesconto(contaId: string, valor: number, motivo: string) {
@@ -194,7 +228,8 @@ export function estornarPagamento(contaId: string, pagamentoId: string) {
 export function cancelarConta(contaId: string, motivo: string) {
   atualizar((e) => {
     const conta = e.contas.find((c) => c.id === contaId);
-    const e2 = { ...e, contas: e.contas.map((c) => (c.id === contaId ? { ...c, status: "cancelada" as const, fechadaEm: agora() } : c)) };
+    let e2: Estado = { ...e, contas: e.contas.map((c) => (c.id === contaId ? { ...c, status: "cancelada" as const, fechadaEm: agora() } : c)) };
+    if (conta && conta.status !== "cancelada") e2 = comBaixa(e2, conta.itens.filter((i) => !i.cancelado), -1, `Cancelamento conta ${conta.numero}`);
     return comAuditoria(e2, "conta.cancelada", `Conta ${conta?.numero} (${conta && total(conta).toFixed(2)}) — ${motivo}`);
   });
 }
@@ -368,7 +403,7 @@ export function pedidoOnline(p: PedidoOnline): string {
       pagamentoOnline: p.pagamento,
       observacao: [`Pagamento: ${pag}${troco}`, p.retirada ? "Retirada no balcão" : "", p.observacao ?? ""].filter(Boolean).join(" · "),
     };
-    return { ...e, contas: [...e.contas, conta], seq: { conta: e.seq.conta + 1, pedido: numero } };
+    return comBaixa({ ...e, contas: [...e.contas, conta], seq: { conta: e.seq.conta + 1, pedido: numero } }, itens, 1, `Pedido ${numero}`);
   });
   return id;
 }

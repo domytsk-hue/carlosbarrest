@@ -2,13 +2,14 @@
 
 import clsx from "clsx";
 import Image from "next/image";
-import { MessageSquareText, Minus, Plus, Search, Send, Trash2, UtensilsCrossed } from "lucide-react";
+import { MessageSquareText, Minus, Plus, Scale, Search, Send, Trash2, UtensilsCrossed } from "lucide-react";
 import { useMemo, useState } from "react";
 import { brl } from "@/lib/dominio/calculos";
 import type { Produto } from "@/lib/dominio/tipos";
 import { lancarItens, type ItemNovo } from "@/lib/loja/acoes";
 import { useLoja } from "@/lib/loja/loja";
-import { Botao, Selecao } from "../ui";
+import { balancaDisponivel, lerPeso } from "@/lib/integracoes/balanca";
+import { Botao, EntradaValor, Modal, Selecao } from "../ui";
 
 type Linha = ItemNovo & { chave: string };
 
@@ -61,7 +62,16 @@ export function Lancador({
   const porId = useMemo(() => new Map(produtos.map((p) => [p.id, p])), [produtos]);
   const somaNova = linhas.reduce((s, l) => s + (porId.get(l.produtoId)?.preco ?? 0) * l.qtd, 0);
 
+  const [pesando, setPesando] = useState<Produto | null>(null);
+  const [peso, setPeso] = useState(0);
+  const [msgBalanca, setMsgBalanca] = useState("");
+
   function adicionar(p: Produto) {
+    if (p.porKg) {
+      setPeso(0);
+      setMsgBalanca("");
+      return setPesando(p);
+    }
     setLinhas((ls) => {
       const ex = ls.find((l) => l.produtoId === p.id && !l.obs);
       if (ex) return ls.map((l) => (l === ex ? { ...l, qtd: l.qtd + 1 } : l));
@@ -79,6 +89,49 @@ export function Lancador({
     setLinhas([]);
     aoEnviar?.(n);
   }
+
+  async function lerBalanca() {
+    setMsgBalanca("Lendo a balança…");
+    try {
+      const kg = await lerPeso();
+      setPeso(kg);
+      setMsgBalanca("");
+    } catch (e) {
+      setMsgBalanca((e as Error).message || "Não foi possível ler a balança");
+    }
+  }
+
+  const modalPeso = (
+    <Modal aberto={!!pesando} aoFechar={() => setPesando(null)} titulo={`Peso · ${pesando?.nome ?? ""}`} largura="sm">
+      {pesando && (
+        <div className="grid gap-3">
+          <p className="text-[13px] text-mudo">
+            {brl(pesando.preco)} o quilo. Digite o peso ou leia da balança.
+          </p>
+          <EntradaValor key={peso} valor={peso} aoMudar={setPeso} placeholder="kg (ex.: 0,450)" autoFocus className="text-center text-[22px] font-bold" />
+          {balancaDisponivel() && (
+            <Botao variante="secundario" onClick={lerBalanca}>
+              <Scale size={17} /> Ler da balança
+            </Botao>
+          )}
+          {msgBalanca && <p className="text-center text-[12.5px] font-semibold text-mudo">{msgBalanca}</p>}
+          <div className="flex items-center justify-between rounded-2xl bg-fundo p-3">
+            <span className="text-[13px] text-mudo">Valor</span>
+            <span className="num text-[20px] font-extrabold">{brl(Math.round(pesando.preco * peso * 100) / 100)}</span>
+          </div>
+          <Botao
+            disabled={peso <= 0}
+            onClick={() => {
+              setLinhas((ls) => [...ls, { chave: Math.random().toString(36), produtoId: pesando.id, qtd: Math.round(peso * 1000) / 1000 }]);
+              setPesando(null);
+            }}
+          >
+            Adicionar
+          </Botao>
+        </div>
+      )}
+    </Modal>
+  );
 
   return (
     <div className={clsx("grid gap-3", compacto ? "grid-cols-1" : "lg:grid-cols-[92px_1fr_340px]")}>
@@ -156,11 +209,11 @@ export function Lancador({
                   <span className="num text-[13px] font-semibold">{brl(p.preco * l.qtd)}</span>
                 </div>
                 <div className="mt-1.5 flex items-center gap-1.5">
-                  <button aria-label="Menos" onClick={() => setLinhas((ls) => ls.map((x) => (x === l ? { ...x, qtd: Math.max(1, x.qtd - 1) } : x)))} className="flex h-7 w-7 items-center justify-center rounded-full bg-[#F4E1D8] text-[#9E1B1E]">
+                  <button aria-label="Menos" onClick={() => setLinhas((ls) => ls.map((x) => (x === l && !p.porKg ? { ...x, qtd: Math.max(1, x.qtd - 1) } : x)))} className="flex h-7 w-7 items-center justify-center rounded-full bg-[#F4E1D8] text-[#9E1B1E]">
                     <Minus size={14} />
                   </button>
-                  <span className="num w-6 text-center text-[14px] font-bold">{l.qtd}</span>
-                  <button aria-label="Mais" onClick={() => setLinhas((ls) => ls.map((x) => (x === l ? { ...x, qtd: x.qtd + 1 } : x)))} className="flex h-7 w-7 items-center justify-center rounded-full bg-acao text-white">
+                  <span className="num min-w-6 text-center text-[14px] font-bold">{p.porKg ? `${l.qtd.toLocaleString("pt-BR")} kg` : l.qtd}</span>
+                  <button aria-label="Mais" onClick={() => setLinhas((ls) => ls.map((x) => (x === l && !p.porKg ? { ...x, qtd: x.qtd + 1 } : x)))} className="flex h-7 w-7 items-center justify-center rounded-full bg-acao text-white">
                     <Plus size={14} />
                   </button>
                   <button onClick={() => setObsAberta(obsAberta === l.chave ? null : l.chave)} className={clsx("ml-auto flex h-7 items-center gap-1 rounded-full px-2 text-[11.5px] font-semibold", l.obs ? "bg-[#FDF0D6] text-[#8A5A00]" : "text-mudo")}>
@@ -212,6 +265,7 @@ export function Lancador({
           <Send size={18} /> {rotuloEnviar}
         </Botao>
       </div>
+      {modalPeso}
     </div>
   );
 }

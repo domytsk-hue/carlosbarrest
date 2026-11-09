@@ -1,4 +1,5 @@
 import { CATEGORIAS_SEED, PRODUTOS_SEED } from "../dominio/cardapio-seed";
+import { comFichasExemplo } from "../dominio/estoque";
 import type {
   Auditoria,
   Bairro,
@@ -8,7 +9,12 @@ import type {
   Cliente,
   Conta,
   FormaPagamento,
+  Fornecedor,
   Funcionario,
+  Insumo,
+  Lancamento,
+  MovimentoEstoque,
+  PlanoConta,
   Mesa,
   Produto,
   SessaoCaixa,
@@ -50,11 +56,47 @@ export type Estado = {
   usuarioId: string;
   contas: Conta[];
   chamados: Chamado[];
+  insumos: Insumo[];
+  movimentosEstoque: MovimentoEstoque[];
+  fornecedores: Fornecedor[];
+  planoContas: PlanoConta[];
+  lancamentos: Lancamento[];
   seq: { conta: number; pedido: number };
   auditoria: Auditoria[];
 };
 
 export const VERSAO = 1;
+
+const PLANO_SEED: PlanoConta[] = [
+  { id: "pc1", nome: "Vendas no salão e delivery", tipo: "receita", grupo: "receita" },
+  { id: "pc2", nome: "Outras receitas", tipo: "receita", grupo: "receita" },
+  { id: "pc3", nome: "Compra de mercadorias e insumos", tipo: "despesa", grupo: "cmv" },
+  { id: "pc4", nome: "Bebidas para revenda", tipo: "despesa", grupo: "cmv" },
+  { id: "pc5", nome: "Salários e encargos", tipo: "despesa", grupo: "pessoal" },
+  { id: "pc6", nome: "Comissões e taxa de serviço", tipo: "despesa", grupo: "pessoal" },
+  { id: "pc7", nome: "Aluguel", tipo: "despesa", grupo: "ocupacao" },
+  { id: "pc8", nome: "Energia elétrica", tipo: "despesa", grupo: "ocupacao" },
+  { id: "pc9", nome: "Água", tipo: "despesa", grupo: "ocupacao" },
+  { id: "pc10", nome: "Gás", tipo: "despesa", grupo: "ocupacao" },
+  { id: "pc11", nome: "Internet e telefone", tipo: "despesa", grupo: "administrativa" },
+  { id: "pc12", nome: "Contabilidade e sistemas", tipo: "despesa", grupo: "administrativa" },
+  { id: "pc13", nome: "Material de limpeza e embalagens", tipo: "despesa", grupo: "administrativa" },
+  { id: "pc14", nome: "Marketing e anúncios", tipo: "despesa", grupo: "marketing" },
+  { id: "pc15", nome: "Impostos (Simples Nacional)", tipo: "despesa", grupo: "impostos" },
+  { id: "pc16", nome: "Tarifas bancárias e juros", tipo: "despesa", grupo: "financeira" },
+  { id: "pc17", nome: "Manutenção e equipamentos", tipo: "despesa", grupo: "investimento" },
+  { id: "pc18", nome: "Outras despesas", tipo: "despesa", grupo: "outras" },
+];
+
+const INSUMOS_SEED: Insumo[] = [
+  { id: "in1", nome: "Picanha", unidade: "kg", custo: 62, estoqueMinimo: 10, local: "Câmara fria", fornecedorId: "fo1", ativo: true },
+  { id: "in2", nome: "Carne de bode", unidade: "kg", custo: 38, estoqueMinimo: 8, local: "Câmara fria", fornecedorId: "fo1", ativo: true },
+  { id: "in3", nome: "Arroz", unidade: "kg", custo: 5.5, estoqueMinimo: 15, local: "Depósito", ativo: true },
+  { id: "in4", nome: "Feijão", unidade: "kg", custo: 7.8, estoqueMinimo: 10, local: "Depósito", ativo: true },
+  { id: "in5", nome: "Farinha de mandioca", unidade: "kg", custo: 6, estoqueMinimo: 5, local: "Depósito", ativo: true },
+  { id: "in6", nome: "Heineken long neck", unidade: "un", custo: 5.2, estoqueMinimo: 48, local: "Bar", fornecedorId: "fo2", ativo: true },
+  { id: "in7", nome: "Carvão", unidade: "kg", custo: 4, estoqueMinimo: 20, local: "Depósito", ativo: true },
+];
 
 export function estadoInicial(): Estado {
   return {
@@ -74,7 +116,7 @@ export function estadoInicial(): Estado {
       qrPedidos: true,
     },
     categorias: CATEGORIAS_SEED,
-    produtos: PRODUTOS_SEED,
+    produtos: comFichasExemplo(PRODUTOS_SEED),
     mesas: Array.from({ length: 30 }, (_, i) => ({
       id: `m${i + 1}`,
       numero: i + 1,
@@ -112,6 +154,14 @@ export function estadoInicial(): Estado {
     usuarioId: "f1",
     contas: [],
     chamados: [],
+    insumos: INSUMOS_SEED,
+    movimentosEstoque: [],
+    fornecedores: [
+      { id: "fo1", nome: "Frigorífico Jacobina", documento: "", telefone: "" },
+      { id: "fo2", nome: "Distribuidora de Bebidas", documento: "", telefone: "" },
+    ],
+    planoContas: PLANO_SEED,
+    lancamentos: [],
     seq: { conta: 1, pedido: 64000 },
     auditoria: [],
   };
