@@ -4,6 +4,7 @@ import type {
   Bairro,
   Caixa,
   Categoria,
+  Chamado,
   Cliente,
   Conta,
   FormaPagamento,
@@ -23,6 +24,13 @@ export type Config = {
   chavePix: string;
   cidadePix: string;
   endereco: string;
+  /** Cardápio online (delivery próprio) recebendo pedidos */
+  deliveryAberto: boolean;
+  pedidoMinimo: number;
+  /** Tempo estimado de entrega, em minutos */
+  tempoEntrega: number;
+  /** Permite ao cliente pedir pelo QR Code da mesa (se não, só consulta) */
+  qrPedidos: boolean;
 };
 
 export type Estado = {
@@ -41,6 +49,7 @@ export type Estado = {
   sessaoAtivaId?: string;
   usuarioId: string;
   contas: Conta[];
+  chamados: Chamado[];
   seq: { conta: number; pedido: number };
   auditoria: Auditoria[];
 };
@@ -59,6 +68,10 @@ export function estadoInicial(): Estado {
       chavePix: "",
       cidadePix: "JACOBINA",
       endereco: "Rua da Missão, 111 - Missão, Jacobina/BA",
+      deliveryAberto: true,
+      pedidoMinimo: 20,
+      tempoEntrega: 45,
+      qrPedidos: true,
     },
     categorias: CATEGORIAS_SEED,
     produtos: PRODUTOS_SEED,
@@ -98,6 +111,7 @@ export function estadoInicial(): Estado {
     sessoesCaixa: [],
     usuarioId: "f1",
     contas: [],
+    chamados: [],
     seq: { conta: 1, pedido: 64000 },
     auditoria: [],
   };

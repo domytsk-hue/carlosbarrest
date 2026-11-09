@@ -105,6 +105,11 @@ body {
   padding: 6px 10px;
 }
 
+@page folha {
+  size: A4;
+  margin: 10mm;
+}
+
 /* Impressão em bobina 80 mm */
 @media print {
   @page {
@@ -115,8 +120,18 @@ body {
     visibility: hidden !important;
   }
   #area-impressao,
-  #area-impressao * {
+  #area-impressao *,
+  .folha-impressao,
+  .folha-impressao * {
     visibility: visible !important;
+  }
+  /* Folhas A4 (QR Codes das mesas) */
+  .folha-impressao {
+    page: folha;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
   }
   #area-impressao {
     display: block !important;

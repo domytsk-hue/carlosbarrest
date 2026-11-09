@@ -2,6 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { SUPABASE_KEY, SUPABASE_URL, supabaseConfigurado } from "@/lib/supabase/config";
 
+const PUBLICAS = ["/m/", "/cardapio", "/api/webhooks"];
+
 /** Renova a sessão do Supabase e manda para /login quem não está logado. */
 export async function middleware(request: NextRequest) {
   if (!supabaseConfigurado) return NextResponse.next();
@@ -22,7 +24,11 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await sb.auth.getUser();
 
-  const naLogin = request.nextUrl.pathname.startsWith("/login");
+  const caminho = request.nextUrl.pathname;
+  // Páginas do cliente (cardápio da mesa e delivery) e webhooks são públicos
+  if (PUBLICAS.some((p) => caminho.startsWith(p))) return response;
+
+  const naLogin = caminho.startsWith("/login");
   if (!user && !naLogin) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";

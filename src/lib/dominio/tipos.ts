@@ -120,6 +120,8 @@ export type Conta = {
   externoId?: string;
   cupom?: string;
   observacao?: string;
+  /** Forma escolhida pelo cliente no cardápio online */
+  pagamentoOnline?: FormaPagamentoOnline;
 };
 
 export type Caixa = { id: Id; nome: string };
@@ -142,3 +144,15 @@ export type SessaoCaixa = {
 };
 
 export type Auditoria = { id: Id; em: string; usuario: string; acao: string; detalhes?: string };
+
+/** Chamado do cliente pelo cardápio QR Code (chamar garçom, pedir a conta). */
+export type Chamado = {
+  id: Id;
+  mesaId: Id;
+  motivo: "garcom" | "conta";
+  em: string;
+  atendidoEm?: string;
+  atendidoPor?: Id;
+};
+
+export type FormaPagamentoOnline = "pix" | "dinheiro" | "cartao";
