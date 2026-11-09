@@ -1,0 +1,34 @@
+import type { Metadata, Viewport } from "next";
+// Fontes empacotadas no app (funcionam offline e no build sem internet)
+import "@fontsource/poppins/latin-400.css";
+import "@fontsource/poppins/latin-500.css";
+import "@fontsource/poppins/latin-600.css";
+import "@fontsource/poppins/latin-700.css";
+import "@fontsource/poppins/latin-800.css";
+import "@fontsource/roboto-slab/latin-700.css";
+import "@fontsource/roboto-slab/latin-800.css";
+import "./globals.css";
+
+export const metadata: Metadata = {
+  title: "Carlo's · Gestão",
+  description: "Sistema de gestão do Carlo's Bar & Restaurante",
+  icons: { apple: "/apple-touch-icon.png" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#9E1B1E",
+};
+
+// Aplica o tema salvo antes da primeira pintura, para não piscar.
+const temaInicial = `try{var t=localStorage.getItem("tema");if(t)document.documentElement.dataset.theme=t}catch(e){}`;
+
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <html lang="pt-BR" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: temaInicial }} />
+      </head>
+      <body className="antialiased">{children}</body>
+    </html>
+  );
+}
