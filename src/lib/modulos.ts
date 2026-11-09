@@ -16,6 +16,11 @@ import {
   FolderCog,
   Settings,
   Wallet,
+  BadgePercent,
+  BotMessageSquare,
+  GraduationCap,
+  LifeBuoy,
+  CreditCard,
   type LucideIcon,
 } from "lucide-react";
 
@@ -47,8 +52,13 @@ export const MODULOS: Modulo[] = [
   { slug: "produtos", rotulo: "Produtos", descricao: "Cardápio, categorias, adicionais e ficha técnica", icone: ChefHat, fase: 1, rapido: true },
   { slug: "estoque", rotulo: "Estoque", descricao: "Movimentos, lotes, importação de XML e inventário", icone: PackageOpen, fase: 3, rapido: true },
   { slug: "delivery", rotulo: "Delivery", descricao: "Cardápio online próprio e pedidos do iFood e aiqfome", icone: ShoppingCart, fase: 2, rapido: true },
+  { slug: "promocoes", rotulo: "Promoções", descricao: "Cupons, happy hour e combos", icone: BadgePercent, fase: 5 },
+  { slug: "chatbot", rotulo: "Chatbot", descricao: "Atendimento automático no WhatsApp", icone: BotMessageSquare, fase: 5 },
   { slug: "relatorios", rotulo: "Relatórios", descricao: "Vendas, caixa, financeiro, estoque e DRE", icone: BarChart3, fase: 1 },
   { slug: "cadastros", rotulo: "Cadastros", descricao: "Clientes, fornecedores, funcionários, formas de pagamento e mais", icone: FolderCog, fase: 1 },
+  { slug: "treinamentos", rotulo: "Treinamentos", descricao: "Trilha por função e agenda ao vivo da equipe", icone: GraduationCap, fase: 5 },
+  { slug: "ajuda", rotulo: "Ajuda", descricao: "Central de ajuda com passo a passo de cada tela", icone: LifeBuoy, atalho: "F1", fase: 5 },
+  { slug: "assinatura", rotulo: "Assinatura", descricao: "Planos e mudança de plano", icone: CreditCard, fase: 5 },
   { slug: "configuracoes", rotulo: "Configurações", descricao: "Empresa, impressoras, dispositivos e auditoria", icone: Settings, fase: 0 },
 ];
 

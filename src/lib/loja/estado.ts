@@ -17,6 +17,9 @@ import type {
   PlanoConta,
   Mesa,
   Produto,
+  Promocao,
+  RespostaBot,
+  Treinamento,
   SessaoCaixa,
 } from "../dominio/tipos";
 
@@ -41,6 +44,7 @@ export type Config = {
   maquininha: { provedor: "manual" | "stone"; serialPos: string };
   fiscal: ConfigFiscal;
   marketplaces: Record<"ifood" | "aiqfome", { ativo: boolean; lojaId: string; aceiteAutomatico: boolean }>;
+  chatbot: { ativo: boolean; saudacao: string; horario: string; foraDoHorario: string; respostas: RespostaBot[] };
 };
 
 export type Impressora = { id: string; /** Nome igual ao do impressoras.json do agente (o IP fica lá) */ nome: string; setores: ("caixa" | "cozinha" | "bar")[]; colunas: number };
@@ -77,6 +81,10 @@ export type Estado = {
   fornecedores: Fornecedor[];
   planoContas: PlanoConta[];
   lancamentos: Lancamento[];
+  promocoes: Promocao[];
+  treinamentos: Treinamento[];
+  /** Materiais concluídos por funcionário */
+  materiaisConcluidos: Record<string, string[]>;
   seq: { conta: number; pedido: number };
   auditoria: Auditoria[];
 };
@@ -145,6 +153,16 @@ export function estadoInicial(): Estado {
         ifood: { ativo: false, lojaId: "", aceiteAutomatico: false },
         aiqfome: { ativo: false, lojaId: "", aceiteAutomatico: false },
       },
+      chatbot: {
+        ativo: false,
+        saudacao: "Olá! Aqui é o atendimento do Carlo's Bar & Restaurante 🍖",
+        horario: "Terça a domingo, das 11h às 23h",
+        foraDoHorario: "Estamos fechados agora, mas você já pode ver o cardápio. Abrimos de terça a domingo, às 11h.",
+        respostas: [
+          { id: "rb1", gatilhos: "reserva, reservar, aniversário", resposta: "Fazemos reserva para grupos a partir de 8 pessoas. Me diga o dia, o horário e quantas pessoas que um atendente confirma com você." },
+          { id: "rb2", gatilhos: "estacionamento, estacionar", resposta: "Temos estacionamento em frente ao restaurante." },
+        ],
+      },
     },
     categorias: CATEGORIAS_SEED,
     produtos: comFichasExemplo(PRODUTOS_SEED),
@@ -194,6 +212,12 @@ export function estadoInicial(): Estado {
     ],
     planoContas: PLANO_SEED,
     lancamentos: [],
+    promocoes: [
+      { id: "pr1", nome: "Happy hour do chope", tipo: "happyhour", ativo: true, percentual: 20, categoriaIds: ["cervejas"], diasSemana: [2, 3, 4, 5], horaInicio: "17:00", horaFim: "19:00", canais: ["mesa", "comanda", "balcao", "qrcode"] },
+      { id: "pr2", nome: "Primeira compra no delivery", tipo: "cupom", ativo: true, codigo: "BEMVINDO10", percentual: 10, canais: ["delivery"], pedidoMinimo: 50, usos: 0 },
+    ],
+    treinamentos: [],
+    materiaisConcluidos: {},
     seq: { conta: 1, pedido: 64000 },
     auditoria: [],
   };

@@ -2,6 +2,7 @@
 
 import { arred, restante, total } from "../dominio/calculos";
 import { consumo } from "../dominio/estoque";
+import { precoVigente, validarCupom } from "../dominio/promocoes";
 import type { Canal, Conta, Endereco, FormaPagamentoOnline, Item, MovimentoCaixa, Pagamento, StatusEntrega, StatusPreparo, TipoMovimento } from "../dominio/tipos";
 import type { Config, Estado } from "./estado";
 import { atualizar, novoId, obterEstado } from "./loja";
@@ -99,13 +100,14 @@ export function lancarItens(contaId: string, itens: ItemNovo[], atendenteId?: st
   let numero = 0;
   atualizar((e) => {
     numero = e.seq.pedido + 1;
+    const canal = e.contas.find((c) => c.id === contaId)?.canal ?? "mesa";
     const novos: Item[] = itens.map((i) => {
       const p = e.produtos.find((x) => x.id === i.produtoId)!;
       return {
         id: novoId("i"),
         produtoId: p.id,
         nome: p.nome,
-        preco: p.preco,
+        preco: precoVigente(p, canal, e.promocoes ?? []),
         qtd: i.qtd,
         obs: i.obs,
         setor: p.setor,
@@ -355,7 +357,15 @@ export type PedidoOnline = {
   pagamento: FormaPagamentoOnline;
   trocoPara?: number;
   observacao?: string;
+  cupom?: string;
 };
+
+function cupomAplicado(e: Estado, codigo: string | undefined, itens: Item[]) {
+  if (!codigo) return {};
+  const sub = itens.reduce((s, i) => s + i.preco * i.qtd, 0);
+  const r = validarCupom(codigo, sub, "delivery", e.promocoes ?? []);
+  return r.ok ? { cupom: r.promocao.codigo!.toUpperCase(), desconto: r.desconto } : {};
+}
 
 /** Pedido do cardápio online: vira uma conta do canal "delivery" com status "novo". */
 export function pedidoOnline(p: PedidoOnline): string {
@@ -370,7 +380,7 @@ export function pedidoOnline(p: PedidoOnline): string {
         id: novoId("i"),
         produtoId: prod.id,
         nome: prod.nome,
-        preco: prod.precoDelivery ?? prod.preco,
+        preco: precoVigente(prod, "delivery", e.promocoes ?? []),
         qtd: i.qtd,
         obs: i.obs,
         setor: prod.setor,
@@ -401,9 +411,11 @@ export function pedidoOnline(p: PedidoOnline): string {
       taxaEntrega: taxa,
       abertaEm: agora(),
       pagamentoOnline: p.pagamento,
+      ...cupomAplicado(e, p.cupom, itens),
       observacao: [`Pagamento: ${pag}${troco}`, p.retirada ? "Retirada no balcão" : "", p.observacao ?? ""].filter(Boolean).join(" · "),
     };
-    return comBaixa({ ...e, contas: [...e.contas, conta], seq: { conta: e.seq.conta + 1, pedido: numero } }, itens, 1, `Pedido ${numero}`);
+    const usado = conta.cupom ? e.promocoes.map((x) => (x.codigo?.toUpperCase() === conta.cupom ? { ...x, usos: (x.usos ?? 0) + 1 } : x)) : e.promocoes;
+    return comBaixa({ ...e, promocoes: usado, contas: [...e.contas, conta], seq: { conta: e.seq.conta + 1, pedido: numero } }, itens, 1, `Pedido ${numero}`);
   });
   return id;
 }
