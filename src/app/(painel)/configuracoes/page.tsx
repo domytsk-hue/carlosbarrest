@@ -4,16 +4,11 @@ import { Database, Download, RotateCcw, Sparkles, Upload, UserRound } from "luci
 import Link from "next/link";
 import { useRef } from "react";
 import { Botao, Campo, Cartao, Entrada, EntradaValor, Selecao, Titulo } from "@/components/ui";
-import { trocarUsuario } from "@/lib/loja/acoes";
-import type { Config } from "@/lib/loja/estado";
+import { salvarConfig, trocarUsuario } from "@/lib/loja/acoes";
 import { gerarDadosExemplo } from "@/lib/loja/exemplo";
 import { atualizar, obterEstado, reiniciarDemonstracao, useLoja } from "@/lib/loja/loja";
 import { ROTULO_FUNCAO } from "@/lib/sessao-rotulos";
 import { SECOES_CONFIG } from "./secoes";
-
-function salvarConfig(c: Partial<Config>) {
-  atualizar((e) => ({ ...e, config: { ...e.config, ...c } }));
-}
 
 export default function ConfiguracoesPage() {
   const config = useLoja((e) => e.config);

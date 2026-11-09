@@ -33,6 +33,7 @@ import {
   transferirItens,
 } from "@/lib/loja/acoes";
 import { useLoja } from "@/lib/loja/loja";
+import { BotaoNfce } from "./nfce";
 import { imprimir } from "../impressao";
 import { Acao, Botao, EntradaValor, Entrada, Modal, Pilula, Selecao, useRelogio } from "../ui";
 import { Lancador } from "./lancador";
@@ -127,6 +128,7 @@ export function PainelConta({ contaId, aoFechar, semAcoes }: { contaId: string; 
           <Botao variante="secundario" tamanho="sm" onClick={() => reabrirConta(conta.id)}>
             <RotateCcw size={15} /> Reabrir
           </Botao>
+          <BotaoNfce conta={conta} />
         </div>
       )}
 

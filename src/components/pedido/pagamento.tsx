@@ -6,7 +6,8 @@ import { useEffect, useState } from "react";
 import { arred, brl, pago, restante, total } from "@/lib/dominio/calculos";
 import type { Conta, TipoPagamento } from "@/lib/dominio/tipos";
 import { pagar } from "@/lib/loja/acoes";
-import { useLoja } from "@/lib/loja/loja";
+import { emitirNfce } from "@/lib/loja/acoes-integracoes";
+import { obterEstado, useLoja } from "@/lib/loja/loja";
 import { Botao, EntradaValor, Modal } from "../ui";
 import { PagamentoExtra } from "./pagamento-extra";
 
@@ -52,6 +53,7 @@ export function PagamentoModal({ conta, aberto, aoFechar, aoQuitar }: { conta: C
     if (!formaId || valor <= 0) return;
     const quitou = valor >= devido - 0.009;
     pagar(conta.id, formaId, valor, extra);
+    if (quitou && obterEstado().config.fiscal.automatica) emitirNfce(conta.id);
     if (quitou) {
       aoFechar();
       aoQuitar?.();

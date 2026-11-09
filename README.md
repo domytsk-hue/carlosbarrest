@@ -5,6 +5,18 @@ Sistema completo de gestão para restaurantes: mesas, comandas, balcão, entrega
 - **Plano e prompt mestre:** [`docs/plano.md`](docs/plano.md)
 - **Identidade visual:** [`docs/identidade-visual/identidade-visual.md`](docs/identidade-visual/identidade-visual.md)
 
+## O que já está pronto
+
+| Fase | Módulos |
+| --- | --- |
+| 1 · Operação | Mesas, comandas, balcão, PDV, entregas, caixa, produtos, cadastros, relatórios de venda |
+| 2 · Atendimento | Pedido pelo QR Code da mesa, chamados, monitor da cozinha (KDS), app do garçom, cardápio online próprio com acompanhamento |
+| 3 · Gestão | Estoque com ficha técnica e XML de NF-e, inventário, contas a pagar/receber, DRE, comissões, balança |
+| 4 · Integrações | Agente de impressão (ESC/POS), iFood e aiqfome, NFC-e (Focus NFe), maquininha (manual ou Stone) |
+| 5 · Crescimento | Promoções (cupom, happy hour, combo), chatbot do WhatsApp, central de ajuda (F1), treinamentos, assinatura |
+
+As integrações com terceiros ficam desligadas até as credenciais entrarem nas variáveis do servidor (veja `.env.example`). Os segredos nunca vão para o banco nem para variáveis `NEXT_PUBLIC_`.
+
 ## Stack
 
 Next.js 15 (App Router) · TypeScript · Tailwind CSS 4 · Supabase (Postgres, Auth, Realtime) · lucide-react · Poppins e Roboto Slab empacotadas (@fontsource).
@@ -31,6 +43,11 @@ Sem as variáveis do Supabase, o app roda em **modo demonstração**: sem login 
 src/app/(painel)/        telas logadas (dashboard e módulos)
 src/app/login/           login
 src/components/shell/    layout: menu, barra de acesso rápido, barra de status, suporte, atalhos
+src/lib/dominio/         regras de negócio puras (cálculos, estoque, financeiro, promoções)
+src/lib/loja/            estado e ações do modo demonstração
+src/lib/integracoes/     impressão, marketplaces, fiscal, webhooks
+src/lib/chatbot/         robô de atendimento (simulador e WhatsApp)
+agente/                  agente de impressão local (Node)
 src/lib/modulos.ts       lista de módulos, ícones, atalhos e fase do plano
 src/lib/sessao.ts        usuário, função e restaurante ativos
 supabase/migrations/     esquema do banco (RLS por restaurante)
@@ -38,4 +55,4 @@ supabase/migrations/     esquema do banco (RLS por restaurante)
 
 ## Atalhos
 
-F3 Mesas · F4 Balcão · F8 Entregas · F11 Comandas · F12 PDV · Ctrl+Ins Nova conta
+F1 Ajuda · F3 Mesas · F4 Balcão · F6 Cozinha · F8 Entregas · F11 Comandas · F12 PDV · Ctrl+Ins Nova conta

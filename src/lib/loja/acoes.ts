@@ -1,8 +1,10 @@
 "use client";
 
 import { arred, restante, total } from "../dominio/calculos";
-import type { Canal, Conta, Endereco, Item, MovimentoCaixa, Pagamento, StatusEntrega, StatusPreparo, TipoMovimento } from "../dominio/tipos";
-import type { Estado } from "./estado";
+import { consumo } from "../dominio/estoque";
+import { precoVigente, validarCupom } from "../dominio/promocoes";
+import type { Canal, Conta, Endereco, FormaPagamentoOnline, Item, MovimentoCaixa, Pagamento, StatusEntrega, StatusPreparo, TipoMovimento } from "../dominio/tipos";
+import type { Config, Estado } from "./estado";
 import { atualizar, novoId, obterEstado } from "./loja";
 
 const agora = () => new Date().toISOString();
@@ -24,6 +26,25 @@ export function registrarAuditoria(acao: string, detalhes?: string) {
 
 function mudarConta(id: string, fn: (c: Conta) => Conta) {
   atualizar((e) => ({ ...e, contas: e.contas.map((c) => (c.id === id ? fn(c) : c)) }));
+}
+
+/**
+ * Baixa (sinal 1) ou devolve (sinal −1) no estoque os insumos da ficha técnica
+ * dos itens vendidos.
+ */
+function comBaixa(e: Estado, itens: { produtoId: string; qtd: number }[], sinal: 1 | -1, documento: string): Estado {
+  const c = consumo(itens, e.produtos);
+  if (!c.size) return e;
+  const em = agora();
+  const movs = [...c.entries()].map(([insumoId, q]) => ({
+    id: novoId("me"),
+    insumoId,
+    tipo: sinal === 1 ? ("venda" as const) : ("estorno" as const),
+    qtd: -sinal * q,
+    em,
+    documento,
+  }));
+  return { ...e, movimentosEstoque: [...e.movimentosEstoque, ...movs] };
 }
 
 // ---------------------------------------------------------------------------
@@ -79,13 +100,14 @@ export function lancarItens(contaId: string, itens: ItemNovo[], atendenteId?: st
   let numero = 0;
   atualizar((e) => {
     numero = e.seq.pedido + 1;
+    const canal = e.contas.find((c) => c.id === contaId)?.canal ?? "mesa";
     const novos: Item[] = itens.map((i) => {
       const p = e.produtos.find((x) => x.id === i.produtoId)!;
       return {
         id: novoId("i"),
         produtoId: p.id,
         nome: p.nome,
-        preco: p.preco,
+        preco: precoVigente(p, canal, e.promocoes ?? []),
         qtd: i.qtd,
         obs: i.obs,
         setor: p.setor,
@@ -95,13 +117,18 @@ export function lancarItens(contaId: string, itens: ItemNovo[], atendenteId?: st
         preparo: "pendente",
       };
     });
-    return {
-      ...e,
-      seq: { ...e.seq, pedido: numero },
-      contas: e.contas.map((c) =>
-        c.id === contaId ? { ...c, itens: [...c.itens, ...novos], status: c.status === "fechamento" ? "aberta" : c.status } : c,
-      ),
-    };
+    return comBaixa(
+      {
+        ...e,
+        seq: { ...e.seq, pedido: numero },
+        contas: e.contas.map((c) =>
+          c.id === contaId ? { ...c, itens: [...c.itens, ...novos], status: c.status === "fechamento" ? "aberta" : c.status } : c,
+        ),
+      },
+      novos,
+      1,
+      `Pedido ${numero}`,
+    );
   });
   return numero;
 }
@@ -118,12 +145,21 @@ export function cancelarItem(contaId: string, itemId: string, motivo: string) {
           : c,
       ),
     };
-    return comAuditoria(e2, "item.cancelado", `Conta ${conta?.numero}: ${item?.qtd}x ${item?.nome} — ${motivo}`);
+    const e3 = item && !item.cancelado && conta?.status !== "cancelada" ? comBaixa(e2, [item], -1, `Cancelamento conta ${conta?.numero}`) : e2;
+    return comAuditoria(e3, "item.cancelado", `Conta ${conta?.numero}: ${item?.qtd}x ${item?.nome} — ${motivo}`);
   });
 }
 
 export function alterarQtdItem(contaId: string, itemId: string, qtd: number) {
-  mudarConta(contaId, (c) => ({ ...c, itens: c.itens.map((i) => (i.id === itemId ? { ...i, qtd: Math.max(1, qtd) } : i)) }));
+  atualizar((e) => {
+    const conta = e.contas.find((c) => c.id === contaId);
+    const item = conta?.itens.find((i) => i.id === itemId);
+    if (!conta || !item) return e;
+    const nova = Math.max(1, qtd);
+    const e2 = { ...e, contas: e.contas.map((c) => (c.id === contaId ? { ...c, itens: c.itens.map((i) => (i.id === itemId ? { ...i, qtd: nova } : i)) } : c)) };
+    const delta = nova - item.qtd;
+    return delta ? comBaixa(e2, [{ produtoId: item.produtoId, qtd: Math.abs(delta) }], delta > 0 ? 1 : -1, `Conta ${conta.numero}`) : e2;
+  });
 }
 
 export function aplicarDesconto(contaId: string, valor: number, motivo: string) {
@@ -194,7 +230,8 @@ export function estornarPagamento(contaId: string, pagamentoId: string) {
 export function cancelarConta(contaId: string, motivo: string) {
   atualizar((e) => {
     const conta = e.contas.find((c) => c.id === contaId);
-    const e2 = { ...e, contas: e.contas.map((c) => (c.id === contaId ? { ...c, status: "cancelada" as const, fechadaEm: agora() } : c)) };
+    let e2: Estado = { ...e, contas: e.contas.map((c) => (c.id === contaId ? { ...c, status: "cancelada" as const, fechadaEm: agora() } : c)) };
+    if (conta && conta.status !== "cancelada") e2 = comBaixa(e2, conta.itens.filter((i) => !i.cancelado), -1, `Cancelamento conta ${conta.numero}`);
     return comAuditoria(e2, "conta.cancelada", `Conta ${conta?.numero} (${conta && total(conta).toFixed(2)}) — ${motivo}`);
   });
 }
@@ -263,24 +300,153 @@ export function desagruparItens(contaId: string) {
   }));
 }
 
+const CANAIS_ENTREGA: Canal[] = ["entrega", "delivery", "ifood", "aiqfome"];
+
+/** Avança o preparo (KDS). Em pedidos de entrega, o status do pedido acompanha a cozinha. */
 export function mudarPreparo(contaId: string, itemIds: string[], status: StatusPreparo) {
-  mudarConta(contaId, (c) => ({ ...c, itens: c.itens.map((i) => (itemIds.includes(i.id) ? { ...i, preparo: status } : i)) }));
+  mudarConta(contaId, (c) => {
+    const itens = c.itens.map((i) => (itemIds.includes(i.id) ? { ...i, preparo: status } : i));
+    let statusEntrega = c.statusEntrega;
+    if (CANAIS_ENTREGA.includes(c.canal) && statusEntrega && ["novo", "confirmado", "preparo"].includes(statusEntrega)) {
+      const validos = itens.filter((i) => !i.cancelado);
+      if (validos.length && validos.every((i) => i.preparo === "pronto" || i.preparo === "entregue")) statusEntrega = "pronto";
+      else if (status === "preparo") statusEntrega = "preparo";
+    }
+    return { ...c, itens, statusEntrega };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Cardápio QR Code da mesa e chamados
+// ---------------------------------------------------------------------------
+
+/** Pedido feito pelo cliente no QR Code: entra na conta da mesa (abre se preciso). */
+export function pedidoQrCode(mesaId: string, itens: ItemNovo[]): number {
+  const e = obterEstado();
+  const contaId = contaDaMesa(e, mesaId)?.id ?? abrirConta({ canal: "mesa", mesaId, atendenteId: undefined });
+  const n = lancarItens(contaId, itens, "qrcode");
+  registrarAuditoria("Pedido pelo QR Code", `Mesa ${e.mesas.find((m) => m.id === mesaId)?.numero} · pedido ${n}`);
+  return n;
+}
+
+export function chamar(mesaId: string, motivo: "garcom" | "conta") {
+  atualizar((e) => {
+    if (e.chamados.some((c) => c.mesaId === mesaId && c.motivo === motivo && !c.atendidoEm)) return e;
+    return { ...e, chamados: [{ id: novoId("ch"), mesaId, motivo, em: agora() }, ...e.chamados].slice(0, 300) };
+  });
+  if (motivo === "conta") {
+    const c = contaDaMesa(obterEstado(), mesaId);
+    if (c && c.status === "aberta") pedirConta(c.id);
+  }
+}
+
+export function atenderChamado(id: string) {
+  atualizar((e) => ({ ...e, chamados: e.chamados.map((c) => (c.id === id ? { ...c, atendidoEm: agora(), atendidoPor: e.usuarioId } : c)) }));
+}
+
+// ---------------------------------------------------------------------------
+// Delivery próprio (cardápio online)
+// ---------------------------------------------------------------------------
+
+export type PedidoOnline = {
+  nome: string;
+  telefone: string;
+  retirada: boolean;
+  endereco?: Endereco;
+  itens: ItemNovo[];
+  pagamento: FormaPagamentoOnline;
+  trocoPara?: number;
+  observacao?: string;
+  cupom?: string;
+};
+
+function cupomAplicado(e: Estado, codigo: string | undefined, itens: Item[]) {
+  if (!codigo) return {};
+  const sub = itens.reduce((s, i) => s + i.preco * i.qtd, 0);
+  const r = validarCupom(codigo, sub, "delivery", e.promocoes ?? []);
+  return r.ok ? { cupom: r.promocao.codigo!.toUpperCase(), desconto: r.desconto } : {};
+}
+
+/** Pedido do cardápio online: vira uma conta do canal "delivery" com status "novo". */
+export function pedidoOnline(p: PedidoOnline): string {
+  const clienteId = salvarCliente({ nome: p.nome, telefone: p.telefone, endereco: p.retirada ? undefined : p.endereco });
+  const id = novoId("c");
+  atualizar((e) => {
+    const numero = e.seq.pedido + 1;
+    const taxa = p.retirada ? 0 : (e.bairros.find((b) => b.id === p.endereco?.bairroId)?.taxa ?? 0);
+    const itens: Item[] = p.itens.map((i) => {
+      const prod = e.produtos.find((x) => x.id === i.produtoId)!;
+      return {
+        id: novoId("i"),
+        produtoId: prod.id,
+        nome: prod.nome,
+        preco: precoVigente(prod, "delivery", e.promocoes ?? []),
+        qtd: i.qtd,
+        obs: i.obs,
+        setor: prod.setor,
+        atendenteId: "online",
+        pedidoNumero: numero,
+        enviadoEm: agora(),
+        preparo: "pendente",
+      };
+    });
+    const pag = { pix: "Pix", dinheiro: "Dinheiro", cartao: "Cartão na entrega" }[p.pagamento];
+    const troco = p.pagamento === "dinheiro" && p.trocoPara ? ` · troco para ${p.trocoPara.toFixed(2).replace(".", ",")}` : "";
+    const conta: Conta = {
+      id,
+      numero: e.seq.conta,
+      canal: "delivery",
+      status: "aberta",
+      clienteId,
+      clienteNome: p.nome,
+      telefone: p.telefone,
+      endereco: p.retirada ? undefined : p.endereco,
+      paraViagem: p.retirada,
+      statusEntrega: "novo",
+      itens,
+      pagamentos: [],
+      desconto: 0,
+      servicoPct: 0,
+      couvert: 0,
+      taxaEntrega: taxa,
+      abertaEm: agora(),
+      pagamentoOnline: p.pagamento,
+      ...cupomAplicado(e, p.cupom, itens),
+      observacao: [`Pagamento: ${pag}${troco}`, p.retirada ? "Retirada no balcão" : "", p.observacao ?? ""].filter(Boolean).join(" · "),
+    };
+    const usado = conta.cupom ? e.promocoes.map((x) => (x.codigo?.toUpperCase() === conta.cupom ? { ...x, usos: (x.usos ?? 0) + 1 } : x)) : e.promocoes;
+    return comBaixa({ ...e, promocoes: usado, contas: [...e.contas, conta], seq: { conta: e.seq.conta + 1, pedido: numero } }, itens, 1, `Pedido ${numero}`);
+  });
+  return id;
 }
 
 // ---------------------------------------------------------------------------
 // Entregas
 // ---------------------------------------------------------------------------
 
+/** Pedidos do iFood/aiqfome: avisa o parceiro da mudança de status. */
+function avisarParceiro(contaId: string, status: StatusEntrega) {
+  const c = obterEstado().contas.find((x) => x.id === contaId);
+  if (c && (c.canal === "ifood" || c.canal === "aiqfome")) import("./acoes-integracoes").then((m) => m.notificarMarketplace(c, status));
+}
+
 export function mudarStatusEntrega(contaId: string, status: StatusEntrega) {
   mudarConta(contaId, (c) => ({ ...c, statusEntrega: status }));
+  avisarParceiro(contaId, status);
 }
 
 export function despachar(contaId: string, entregadorId: string) {
   mudarConta(contaId, (c) => ({ ...c, entregadorId, statusEntrega: "saiu", saiuEm: agora() }));
+  avisarParceiro(contaId, "saiu");
 }
 
+/** Entregue: se já está tudo pago (ex.: pago no app), a conta fecha. */
 export function concluirEntrega(contaId: string) {
-  mudarConta(contaId, (c) => ({ ...c, statusEntrega: "entregue" }));
+  mudarConta(contaId, (c) => {
+    const quitada = c.itens.some((i) => !i.cancelado) && restante(c) <= 0.009 && c.status !== "cancelada";
+    return { ...c, statusEntrega: "entregue", ...(quitada && c.status !== "paga" ? { status: "paga" as const, fechadaEm: agora() } : {}) };
+  });
+  avisarParceiro(contaId, "entregue");
 }
 
 // ---------------------------------------------------------------------------
@@ -353,3 +519,14 @@ export function trocarUsuario(funcionarioId: string) {
 }
 
 export { obterEstado };
+
+// ---------------------------------------------------------------------------
+// Configurações
+// ---------------------------------------------------------------------------
+
+export function salvarConfig(c: Partial<Config>, auditar?: string) {
+  atualizar((e) => {
+    const n = { ...e, config: { ...e.config, ...c } };
+    return auditar ? comAuditoria(n, auditar) : n;
+  });
+}

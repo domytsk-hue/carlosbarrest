@@ -5,12 +5,13 @@ import { useState } from "react";
 import { EditorLista } from "@/components/editor-lista";
 import { Pilula, Titulo } from "@/components/ui";
 import { brl } from "@/lib/dominio/calculos";
-import type { Bairro, Caixa, Categoria, Cliente, FormaPagamento, Funcionario, Mesa } from "@/lib/dominio/tipos";
+import { ROTULO_GRUPO } from "@/lib/dominio/financeiro";
+import type { Bairro, Caixa, Categoria, Cliente, FormaPagamento, Fornecedor, Funcionario, Mesa, PlanoConta } from "@/lib/dominio/tipos";
 import { excluirRegistro, salvarRegistro } from "@/lib/loja/cadastros";
 import { useLoja } from "@/lib/loja/loja";
 import { ROTULO_FUNCAO } from "@/lib/sessao-rotulos";
 
-const ABAS = ["Clientes", "Funcionários", "Categorias", "Mesas", "Bairros", "Formas de pagamento", "Caixas"] as const;
+const ABAS = ["Clientes", "Fornecedores", "Funcionários", "Categorias", "Mesas", "Bairros", "Formas de pagamento", "Plano de contas", "Caixas"] as const;
 
 export default function CadastrosPage() {
   const [aba, setAba] = useState<(typeof ABAS)[number]>("Clientes");
@@ -130,6 +131,38 @@ export default function CadastrosPage() {
             { chave: "taxa", rotulo: "Taxa (%)", tipo: "valor", direita: true, exibir: (f) => `${f.taxa.toString().replace(".", ",")}%` },
             { chave: "prazoDias", rotulo: "Recebe em (dias)", tipo: "numero", direita: true },
             { chave: "ativo", rotulo: "Ativa", tipo: "booleano" },
+          ]}
+        />
+      )}
+
+      {aba === "Fornecedores" && (
+        <EditorLista<Fornecedor>
+          titulo="Fornecedor"
+          itens={e.fornecedores}
+          busca={(f, q) => f.nome.toLowerCase().includes(q) || f.documento.includes(q)}
+          novo={() => ({ id: "", nome: "", documento: "", telefone: "" })}
+          aoSalvar={(f) => salvarRegistro("fornecedores", f)}
+          aoExcluir={(f) => excluirRegistro("fornecedores", f.id)}
+          campos={[
+            { chave: "nome", rotulo: "Nome", obrigatorio: true },
+            { chave: "documento", rotulo: "CNPJ / CPF" },
+            { chave: "telefone", rotulo: "Telefone" },
+            { chave: "email", rotulo: "E-mail" },
+          ]}
+        />
+      )}
+
+      {aba === "Plano de contas" && (
+        <EditorLista<PlanoConta>
+          titulo="Conta do plano"
+          itens={e.planoContas}
+          novo={() => ({ id: "", nome: "", tipo: "despesa", grupo: "outras" })}
+          aoSalvar={(p) => salvarRegistro("planoContas", p)}
+          aoExcluir={(p) => excluirRegistro("planoContas", p.id)}
+          campos={[
+            { chave: "nome", rotulo: "Nome", obrigatorio: true },
+            { chave: "tipo", rotulo: "Tipo", tipo: "opcao", opcoes: [{ valor: "despesa", rotulo: "Despesa" }, { valor: "receita", rotulo: "Receita" }] },
+            { chave: "grupo", rotulo: "Linha no DRE", tipo: "opcao", opcoes: Object.entries(ROTULO_GRUPO).map(([valor, rotulo]) => ({ valor, rotulo })) },
           ]}
         />
       )}

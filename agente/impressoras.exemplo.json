@@ -1,0 +1,9 @@
+{
+  "porta": 9123,
+  "origens": ["http://localhost:3000", "https://SEU-DOMINIO.vercel.app"],
+  "impressoras": {
+    "caixa": "192.168.0.50:9100",
+    "cozinha": "192.168.0.51:9100",
+    "bar": "192.168.0.52:9100"
+  }
+}
