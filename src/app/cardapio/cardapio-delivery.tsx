@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BarraCarrinho, CabecalhoCliente, CardapioCliente, ListaCarrinho, somaCarrinho, type LinhaCarrinho } from "@/components/cliente/cardapio-cliente";
 import { brl } from "@/lib/dominio/calculos";
+import { validarCupom } from "@/lib/dominio/promocoes";
 import type { FormaPagamentoOnline } from "@/lib/dominio/tipos";
 import { pedidoOnline } from "@/lib/loja/acoes";
 import { useLoja } from "@/lib/loja/loja";
@@ -30,6 +31,9 @@ export function CardapioDelivery() {
   const [troco, setTroco] = useState("");
   const [obs, setObs] = useState("");
   const [erro, setErro] = useState("");
+  const [cupom, setCupom] = useState("");
+  const [cupomAberto, setCupomAberto] = useState(false);
+  const promocoes = useLoja((e) => e.promocoes);
 
   useEffect(() => {
     try {
@@ -42,6 +46,9 @@ export function CardapioDelivery() {
   const soma = somaCarrinho(carrinho, produtos, true);
   const taxa = retirada ? 0 : (bairros.find((b) => b.id === dados.bairroId)?.taxa ?? 0);
   const faltaMinimo = Math.max(0, config.pedidoMinimo - soma);
+  const resCupom = cupom ? validarCupom(cupom, soma, "delivery", promocoes) : null;
+  const desconto = resCupom?.ok ? resCupom.desconto : 0;
+  const totalFinal = Math.max(0, soma + taxa - desconto);
   const set = (k: keyof DadosCliente) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setDados((d) => ({ ...d, [k]: e.target.value }));
 
   function finalizar() {
@@ -61,6 +68,7 @@ export function CardapioDelivery() {
       pagamento,
       trocoPara: pagamento === "dinheiro" ? Number(troco.replace(",", ".")) || undefined : undefined,
       observacao: obs.trim() || undefined,
+      cupom: resCupom?.ok ? cupom : undefined,
     });
     router.push(`/cardapio/pedido/${id}`);
   }
@@ -179,14 +187,30 @@ export function CardapioDelivery() {
                     <dt>Taxa de entrega</dt>
                     <dd className="num">{retirada ? "Grátis" : dados.bairroId ? brl(taxa) : "Escolha o bairro"}</dd>
                   </div>
+                  {desconto > 0 && (
+                    <div className="flex justify-between font-semibold text-ok">
+                      <dt>Cupom {cupom.toUpperCase()}</dt>
+                      <dd className="num">−{brl(desconto)}</dd>
+                    </div>
+                  )}
                   <div className="flex justify-between text-[16px] font-extrabold">
                     <dt>Total</dt>
-                    <dd className="num">{brl(soma + taxa)}</dd>
+                    <dd className="num">{brl(totalFinal)}</dd>
                   </div>
                 </dl>
+                {cupomAberto ? (
+                  <div className="mt-2">
+                    <input className={campo} placeholder="Código do cupom" value={cupom} onChange={(e) => setCupom(e.target.value.toUpperCase())} autoCapitalize="characters" />
+                    {resCupom && !resCupom.ok && cupom.length >= 3 && <p className="mt-1 text-[12px] font-semibold text-acao">{resCupom.erro}</p>}
+                  </div>
+                ) : (
+                  <button onClick={() => setCupomAberto(true)} className="mt-2 text-[13px] font-bold text-acao">
+                    Tenho um cupom
+                  </button>
+                )}
                 {erro && <p className="mt-2 rounded-xl bg-rosado p-2 text-[12.5px] font-semibold text-acao">{erro}</p>}
                 <button onClick={finalizar} className="mt-3 flex min-h-14 w-full items-center justify-center rounded-full bg-acao font-bold text-white shadow-botao">
-                  Fazer pedido · <span className="num ml-1">{brl(soma + taxa)}</span>
+                  Fazer pedido · <span className="num ml-1">{brl(totalFinal)}</span>
                 </button>
                 <button onClick={() => setEtapa("carrinho")} className="mt-2 w-full py-2 text-[13px] font-semibold text-mudo">
                   Voltar para a sacola

@@ -6,7 +6,8 @@ import { Minus, Plus, Search, ShoppingBag, UtensilsCrossed, X } from "lucide-rea
 import { useEffect, useMemo, useRef, useState } from "react";
 import { brl } from "@/lib/dominio/calculos";
 import type { Produto } from "@/lib/dominio/tipos";
-import { useLoja } from "@/lib/loja/loja";
+import { precoVigente } from "@/lib/dominio/promocoes";
+import { obterEstado, useLoja } from "@/lib/loja/loja";
 
 export type LinhaCarrinho = { produtoId: string; qtd: number; obs?: string };
 
@@ -26,8 +27,9 @@ export function CabecalhoCliente({ titulo, sub, direita }: { titulo: React.React
   );
 }
 
-/** Preço do produto no canal: o delivery pode ter preço próprio. */
-export const precoNoCanal = (p: Produto, delivery: boolean) => (delivery ? (p.precoDelivery ?? p.preco) : p.preco);
+/** Preço do produto no canal (o delivery pode ter preço próprio), já com happy hour. */
+export const precoNoCanal = (p: Produto, delivery: boolean) => precoVigente(p, delivery ? "delivery" : "mesa", obterEstado().promocoes ?? []);
+const precoCheio = (p: Produto, delivery: boolean) => (delivery ? (p.precoDelivery ?? p.preco) : p.preco);
 
 /**
  * Cardápio para o cliente: categorias com ícone, busca, foto, descrição e
@@ -132,7 +134,10 @@ export function CardapioCliente({
                         {p.descricao && <p className="mt-0.5 line-clamp-2 text-[12px] text-mudo">{p.descricao}</p>}
                       </button>
                       <div className="mt-auto flex items-center justify-between pt-1">
-                        <span className="num text-[15px] font-extrabold text-marca">{brl(precoNoCanal(p, delivery))}</span>
+                        <span className="num text-[15px] font-extrabold text-marca">
+                          {precoNoCanal(p, delivery) < precoCheio(p, delivery) && <s className="mr-1 text-[12px] font-semibold text-mudo">{brl(precoCheio(p, delivery))}</s>}
+                          {brl(precoNoCanal(p, delivery))}
+                        </span>
                         {!somenteConsulta &&
                           (n ? (
                             <div className="flex items-center gap-1 rounded-full bg-rosado p-0.5">

@@ -247,3 +247,50 @@ export type Lancamento = {
   obs?: string;
   criadoEm: string;
 };
+
+// ---------------------------------------------------------------------------
+// Fase 5 · Marketing, atendimento automático e equipe
+// ---------------------------------------------------------------------------
+
+export type TipoPromocao = "cupom" | "happyhour" | "combo";
+
+export type Promocao = {
+  id: Id;
+  nome: string;
+  tipo: TipoPromocao;
+  ativo: boolean;
+  /** Cupom: código digitado pelo cliente */
+  codigo?: string;
+  percentual?: number;
+  valorFixo?: number;
+  /** Happy hour: categorias/produtos com desconto (vazio = todos) */
+  categoriaIds?: Id[];
+  produtoIds?: Id[];
+  /** 0 = domingo … 6 = sábado (vazio = todos os dias) */
+  diasSemana?: number[];
+  horaInicio?: string;
+  horaFim?: string;
+  canais?: Canal[];
+  pedidoMinimo?: number;
+  validoAte?: string;
+  limiteUsos?: number;
+  usos?: number;
+  /** Combo: itens e preço fechado; vira um produto no cardápio */
+  combo?: { itens: { produtoId: Id; qtd: number }[]; preco: number; produtoId?: Id };
+};
+
+export type Treinamento = {
+  id: Id;
+  titulo: string;
+  descricao: string;
+  /** AAAA-MM-DDTHH:mm */
+  quando: string;
+  duracaoMin: number;
+  link?: string;
+  local?: string;
+  funcoes: Funcao[];
+  confirmados: Id[];
+  presentes?: Id[];
+};
+
+export type RespostaBot = { id: Id; gatilhos: string; resposta: string };
