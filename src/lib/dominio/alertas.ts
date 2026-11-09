@@ -1,5 +1,6 @@
 import type { Estado } from "../loja/estado";
-import { minutosDesde } from "./calculos";
+import { diaLocal, minutosDesde } from "./calculos";
+import { saldos } from "./estoque";
 
 export type Alerta = { tipo: "atraso" | "estoque" | "conta" | "caixa"; texto: string; href: string };
 
@@ -37,5 +38,15 @@ export function calcularAlertas(e: Estado, agora = Date.now()): Alerta[] {
       a.push({ tipo: "caixa", texto: `${e.caixas.find((c) => c.id === s.caixaId)?.nome} está aberto há mais de 14 horas`, href: "/caixa" });
     }
   }
+  const s = saldos(e.movimentosEstoque ?? []);
+  const baixos = (e.insumos ?? []).filter((i) => i.ativo && (s.get(i.id) ?? 0) < i.estoqueMinimo);
+  if (baixos.length)
+    a.push({ tipo: "estoque", texto: baixos.length === 1 ? `${baixos[0].nome} está abaixo do estoque mínimo` : `${baixos.length} insumos abaixo do mínimo: ${baixos.slice(0, 3).map((i) => i.nome).join(", ")}${baixos.length > 3 ? "…" : ""}`, href: "/estoque" });
+  const hoje = diaLocal();
+  const abertas = (e.lancamentos ?? []).filter((l) => !l.pagoEm && l.tipo === "pagar");
+  const vencidas = abertas.filter((l) => l.vencimento < hoje);
+  const deHoje = abertas.filter((l) => l.vencimento === hoje);
+  if (vencidas.length) a.push({ tipo: "conta", texto: `${vencidas.length} ${vencidas.length === 1 ? "conta vencida" : "contas vencidas"} a pagar (R$ ${vencidas.reduce((x, l) => x + l.valor, 0).toFixed(2).replace(".", ",")})`, href: "/contas" });
+  if (deHoje.length) a.push({ tipo: "conta", texto: `${deHoje.length} ${deHoje.length === 1 ? "conta vence" : "contas vencem"} hoje: ${deHoje.map((l) => l.descricao).slice(0, 2).join(", ")}`, href: "/contas" });
   return a.slice(0, 8);
 }

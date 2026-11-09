@@ -20,8 +20,10 @@ export type Produto = {
   noDelivery: boolean;
   precoDelivery?: number;
   descricao?: string;
-  /** Ficha técnica: insumos consumidos por unidade vendida (Fase 3) */
+  /** Ficha técnica: insumos consumidos por unidade vendida */
   ficha?: { insumoId: Id; qtd: number }[];
+  /** Vendido por quilo (lê o peso na balança) */
+  porKg?: boolean;
 };
 
 export type Bairro = { id: Id; nome: string; taxa: number };
@@ -156,3 +158,75 @@ export type Chamado = {
 };
 
 export type FormaPagamentoOnline = "pix" | "dinheiro" | "cartao";
+
+// ---------------------------------------------------------------------------
+// Fase 3 · Estoque e financeiro
+// ---------------------------------------------------------------------------
+
+export type Unidade = "un" | "kg" | "g" | "l" | "ml" | "cx" | "pct";
+
+export type Insumo = {
+  id: Id;
+  nome: string;
+  unidade: Unidade;
+  /** Custo médio por unidade (atualizado nas entradas) */
+  custo: number;
+  estoqueMinimo: number;
+  /** Onde fica guardado: Cozinha, Bar, Depósito... */
+  local: string;
+  fornecedorId?: Id;
+  /** Código do produto na nota do fornecedor, para casar o XML */
+  codigoFornecedor?: string;
+  ativo: boolean;
+};
+
+export type TipoMovEstoque = "entrada" | "saida" | "perda" | "ajuste" | "venda" | "estorno";
+
+export type MovimentoEstoque = {
+  id: Id;
+  insumoId: Id;
+  tipo: TipoMovEstoque;
+  /** Quantidade com sinal (+ entra, − sai) */
+  qtd: number;
+  /** Custo unitário na entrada */
+  custo?: number;
+  em: string;
+  lote?: string;
+  validade?: string;
+  documento?: string;
+  obs?: string;
+  usuario?: string;
+};
+
+export type Fornecedor = { id: Id; nome: string; documento: string; telefone: string; email?: string };
+
+/** Grupo da linha no DRE */
+export type GrupoDre = "receita" | "cmv" | "pessoal" | "ocupacao" | "administrativa" | "marketing" | "impostos" | "financeira" | "investimento" | "outras";
+
+export type PlanoConta = { id: Id; nome: string; tipo: "receita" | "despesa"; grupo: GrupoDre };
+
+export type Lancamento = {
+  id: Id;
+  tipo: "pagar" | "receber";
+  descricao: string;
+  planoId: Id;
+  fornecedorId?: Id;
+  clienteId?: Id;
+  valor: number;
+  /** AAAA-MM-DD */
+  vencimento: string;
+  competencia?: string;
+  documento?: string;
+  /** "2/6" quando parcelado */
+  parcela?: string;
+  recorrente?: boolean;
+  pagoEm?: string;
+  valorPago?: number;
+  multa?: number;
+  juros?: number;
+  descontoPago?: number;
+  formaId?: Id;
+  anexo?: { nome: string; dados: string };
+  obs?: string;
+  criadoEm: string;
+};
