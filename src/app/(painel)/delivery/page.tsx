@@ -18,6 +18,7 @@ const COR: Record<StatusEntrega, "amarela" | "azul" | "laranja" | "verde" | "neu
 export default function DeliveryPage() {
   const config = useLoja((e) => e.config);
   const contas = useLoja((e) => e.contas.filter((c) => c.canal === "delivery" && mesmoDia(c.abertaEm, diaLocal())));
+  const marketplace = useLoja((e) => e.contas.filter((c) => (c.canal === "ifood" || c.canal === "aiqfome") && c.status !== "cancelada" && mesmoDia(c.abertaEm, diaLocal())));
   const [origem, setOrigem] = useState("");
   const [copiado, setCopiado] = useState(false);
   useEffect(() => setOrigem(window.location.origin), []);
@@ -91,23 +92,30 @@ export default function DeliveryPage() {
             )}
           </Cartao>
 
-          <Cartao titulo="Marketplaces">
+          <Cartao titulo="Marketplaces" acao={<Link href="/configuracoes" className="text-[12.5px] font-semibold text-acao">Configurar</Link>}>
             <div className="grid gap-2 sm:grid-cols-2">
-              {[
-                { n: "iFood", cor: "#EA1D2C" },
-                { n: "aiqfome", cor: "#7B2CBF" },
-              ].map((m) => (
-                <div key={m.n} className="flex items-center gap-3 rounded-2xl border border-linha p-3">
-                  <span className="grid h-10 w-10 place-items-center rounded-full text-white" style={{ background: m.cor }}>
-                    <ShoppingCart size={18} />
-                  </span>
-                  <div className="flex-1">
-                    <p className="font-bold">{m.n}</p>
-                    <p className="text-[12px] text-mudo">Pedidos entram direto em Entregas</p>
+              {(
+                [
+                  ["ifood", "iFood", "#EA1D2C"],
+                  ["aiqfome", "aiqfome", "#7B2CBF"],
+                ] as const
+              ).map(([k, n, cor]) => {
+                const hoje = marketplace.filter((c) => c.canal === k);
+                return (
+                  <div key={k} className="flex items-center gap-3 rounded-2xl border border-linha p-3">
+                    <span className="grid h-10 w-10 place-items-center rounded-full text-white" style={{ background: cor }}>
+                      <ShoppingCart size={18} />
+                    </span>
+                    <div className="flex-1">
+                      <p className="font-bold">{n}</p>
+                      <p className="num text-[12px] text-mudo">
+                        {hoje.length} {hoje.length === 1 ? "pedido" : "pedidos"} hoje · {brl(hoje.reduce((s, c) => s + total(c), 0))}
+                      </p>
+                    </div>
+                    {config.marketplaces[k].ativo ? <Pilula cor="verde">Ligado</Pilula> : <Pilula>Desligado</Pilula>}
                   </div>
-                  <Pilula>Fase 4</Pilula>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </Cartao>
         </div>

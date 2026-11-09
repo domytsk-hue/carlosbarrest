@@ -412,16 +412,29 @@ export function pedidoOnline(p: PedidoOnline): string {
 // Entregas
 // ---------------------------------------------------------------------------
 
+/** Pedidos do iFood/aiqfome: avisa o parceiro da mudança de status. */
+function avisarParceiro(contaId: string, status: StatusEntrega) {
+  const c = obterEstado().contas.find((x) => x.id === contaId);
+  if (c && (c.canal === "ifood" || c.canal === "aiqfome")) import("./acoes-integracoes").then((m) => m.notificarMarketplace(c, status));
+}
+
 export function mudarStatusEntrega(contaId: string, status: StatusEntrega) {
   mudarConta(contaId, (c) => ({ ...c, statusEntrega: status }));
+  avisarParceiro(contaId, status);
 }
 
 export function despachar(contaId: string, entregadorId: string) {
   mudarConta(contaId, (c) => ({ ...c, entregadorId, statusEntrega: "saiu", saiuEm: agora() }));
+  avisarParceiro(contaId, "saiu");
 }
 
+/** Entregue: se já está tudo pago (ex.: pago no app), a conta fecha. */
 export function concluirEntrega(contaId: string) {
-  mudarConta(contaId, (c) => ({ ...c, statusEntrega: "entregue" }));
+  mudarConta(contaId, (c) => {
+    const quitada = c.itens.some((i) => !i.cancelado) && restante(c) <= 0.009 && c.status !== "cancelada";
+    return { ...c, statusEntrega: "entregue", ...(quitada && c.status !== "paga" ? { status: "paga" as const, fechadaEm: agora() } : {}) };
+  });
+  avisarParceiro(contaId, "entregue");
 }
 
 // ---------------------------------------------------------------------------

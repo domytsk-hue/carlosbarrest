@@ -2,31 +2,33 @@
 
 import { useEffect, useState } from "react";
 import { brl, hora, itensValidos, pago, restante, subtotal, total, totalItem, valorServico } from "@/lib/dominio/calculos";
-import type { Conta, Setor } from "@/lib/dominio/tipos";
+import type { Conta } from "@/lib/dominio/tipos";
+import { imprimirNoAgente, rotuloConta as rotulo, type TrabalhoImpressao } from "@/lib/integracoes/agente";
 import { obterEstado } from "@/lib/loja/loja";
 
-// Impressão em bobina de 80 mm pelo navegador (Ctrl+P).
-// O agente local de impressão (Fase 4) recebe o mesmo conteúdo em ESC/POS.
+// Impressão em bobina de 80 mm. Com o agente local ligado (Configurações ›
+// Impressoras), o cupom vai em ESC/POS direto para a impressora do setor;
+// senão, ou se o agente falhar, sai pelo navegador (Ctrl+P).
 
-type Trabalho =
-  | { tipo: "conta"; conta: Conta }
-  | { tipo: "preparo"; conta: Conta; pedidoNumero?: number; setor?: Setor }
-  | { tipo: "texto"; titulo: string; linhas: [string, string][] };
+type Trabalho = TrabalhoImpressao;
 
 let definir: ((t: Trabalho | null) => void) | null = null;
 
-export function imprimir(t: Trabalho) {
+function peloNavegador(t: Trabalho) {
   definir?.(t);
   setTimeout(() => window.print(), 80);
 }
 
-function rotuloConta(c: Conta) {
+export function imprimir(t: Trabalho) {
   const e = obterEstado();
-  if (c.canal === "mesa") return `Mesa ${e.mesas.find((m) => m.id === c.mesaId)?.numero ?? "?"}`;
-  if (c.canal === "comanda") return `Comanda ${c.comanda}`;
-  if (c.canal === "entrega" || c.canal === "delivery") return `Entrega #${c.numero}`;
-  return `${c.paraViagem ? "Viagem" : "Balcão"} #${c.numero}`;
+  if (!e.config.impressao?.agenteAtivo) return peloNavegador(t);
+  imprimirNoAgente(t, e).catch((err) => {
+    console.warn("[impressão] agente indisponível, usando o navegador:", err?.message);
+    peloNavegador(t);
+  });
 }
+
+const rotuloConta = (c: Conta) => rotulo(c, obterEstado());
 
 export function AreaImpressao() {
   const [t, setT] = useState<Trabalho | null>(null);

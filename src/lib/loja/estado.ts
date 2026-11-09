@@ -37,6 +37,22 @@ export type Config = {
   tempoEntrega: number;
   /** Permite ao cliente pedir pelo QR Code da mesa (se não, só consulta) */
   qrPedidos: boolean;
+  impressao: ConfigImpressao;
+  maquininha: { provedor: "manual" | "stone"; serialPos: string };
+  fiscal: ConfigFiscal;
+  marketplaces: Record<"ifood" | "aiqfome", { ativo: boolean; lojaId: string; aceiteAutomatico: boolean }>;
+};
+
+export type Impressora = { id: string; /** Nome igual ao do impressoras.json do agente (o IP fica lá) */ nome: string; setores: ("caixa" | "cozinha" | "bar")[]; colunas: number };
+export type ConfigImpressao = { agenteAtivo: boolean; agenteUrl: string; impressoras: Impressora[] };
+export type ConfigFiscal = {
+  emissor: "nenhum" | "focusnfe";
+  ambiente: "homologacao" | "producao";
+  cnpj: string;
+  inscricaoEstadual: string;
+  regime: "simples" | "normal";
+  /** Emite NFC-e sozinho ao fechar a conta */
+  automatica: boolean;
 };
 
 export type Estado = {
@@ -114,6 +130,21 @@ export function estadoInicial(): Estado {
       pedidoMinimo: 20,
       tempoEntrega: 45,
       qrPedidos: true,
+      impressao: {
+        agenteAtivo: false,
+        agenteUrl: "http://localhost:9123",
+        impressoras: [
+          { id: "imp1", nome: "caixa", setores: ["caixa"], colunas: 48 },
+          { id: "imp2", nome: "cozinha", setores: ["cozinha"], colunas: 48 },
+          { id: "imp3", nome: "bar", setores: ["bar"], colunas: 48 },
+        ],
+      },
+      maquininha: { provedor: "manual", serialPos: "" },
+      fiscal: { emissor: "nenhum", ambiente: "homologacao", cnpj: "", inscricaoEstadual: "", regime: "simples", automatica: false },
+      marketplaces: {
+        ifood: { ativo: false, lojaId: "", aceiteAutomatico: false },
+        aiqfome: { ativo: false, lojaId: "", aceiteAutomatico: false },
+      },
     },
     categorias: CATEGORIAS_SEED,
     produtos: comFichasExemplo(PRODUTOS_SEED),
@@ -145,6 +176,7 @@ export function estadoInicial(): Estado {
       { id: "fp4", nome: "Débito", tipo: "debito", taxa: 1.4, prazoDias: 1, ativo: true },
       { id: "fp5", nome: "Voucher", tipo: "voucher", taxa: 5, prazoDias: 30, ativo: true },
       { id: "fp6", nome: "Fiado", tipo: "fiado", taxa: 0, prazoDias: 30, ativo: true },
+      { id: "fp7", nome: "Pago no app (iFood/aiqfome)", tipo: "voucher", taxa: 0, prazoDias: 30, ativo: false },
     ],
     caixas: [
       { id: "cx1", nome: "Caixa 1" },
