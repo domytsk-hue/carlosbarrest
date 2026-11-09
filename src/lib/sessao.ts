@@ -1,16 +1,8 @@
 import { supabaseConfigurado } from "./supabase/config";
 import { criarClienteServidor } from "./supabase/server";
 
-export type Funcao = "dono" | "gerente" | "caixa" | "garcom" | "cozinha" | "entregador";
-
-export const ROTULO_FUNCAO: Record<Funcao, string> = {
-  dono: "Dono",
-  gerente: "Gerente",
-  caixa: "Caixa",
-  garcom: "Garçom",
-  cozinha: "Cozinha",
-  entregador: "Entregador",
-};
+import { ROTULO_FUNCAO, type Funcao } from "./sessao-rotulos";
+export { ROTULO_FUNCAO, type Funcao };
 
 export type Sessao = {
   nome: string;

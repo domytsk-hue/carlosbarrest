@@ -11,6 +11,7 @@ import { useAtalhos } from "./use-atalhos";
 import { StatusBar } from "./status-bar";
 import { SupportButton } from "./support-button";
 import { ThemeToggle } from "./theme-toggle";
+import { AreaImpressao } from "../impressao";
 import type { Sessao } from "@/lib/sessao";
 
 function ativo(pathname: string, slug: string) {
@@ -104,6 +105,7 @@ export function AppShell({ sessao, children }: { sessao: Sessao; children: React
       </div>
 
       <SupportButton />
+      <AreaImpressao />
     </div>
   );
 }

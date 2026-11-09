@@ -1,8 +1,13 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
-import { AlarmClock, AlertTriangle, ArrowUpRight, Armchair, Package, Receipt, ShoppingBag, Wallet } from "lucide-react";
-import { DEMO, brl } from "@/lib/demo";
-import { obterSessao } from "@/lib/sessao";
+import { AlarmClock, AlertTriangle, ArrowDownRight, ArrowUpRight, Armchair, CheckCircle2, Package, Receipt, ShoppingBag, Wallet } from "lucide-react";
+import { calcularAlertas } from "@/lib/dominio/alertas";
+import { brl, diaLocal, total } from "@/lib/dominio/calculos";
+import { diasAtras, porCanal, porForma, porHora, porProduto, somaVendas, vendasNoPeriodo } from "@/lib/dominio/indicadores";
+import { useLoja } from "@/lib/loja/loja";
+import { useRelogio } from "@/components/ui";
 
 function Kpi({ rotulo, valor, detalhe, icone: Icone, destaque }: { rotulo: string; valor: string; detalhe?: React.ReactNode; icone: React.ElementType; destaque?: boolean }) {
   return (
@@ -35,48 +40,73 @@ function Card({ titulo, acao, children, className = "" }: { titulo: string; acao
   );
 }
 
-export default async function Dashboard() {
-  const sessao = await obterSessao();
-  const d = DEMO;
-  const variacao = ((d.faturamentoHoje - d.faturamentoSemanaPassada) / d.faturamentoSemanaPassada) * 100;
-  const maxHora = Math.max(...d.porHora.map((h) => h.valor));
-  const totalCanais = d.porCanal.reduce((s, c) => s + c.valor, 0);
-  const totalPag = d.pagamentos.reduce((s, p) => s + p.valor, 0);
-  const totalMesas = d.mesas.ocupadas + d.mesas.emFechamento + d.mesas.livres;
-  const hoje = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
+const ICONE_ALERTA = { atraso: AlarmClock, estoque: Package, conta: AlertTriangle, caixa: Wallet };
+
+export default function Dashboard() {
+  const e = useLoja((x) => x);
+  const agora = useRelogio(60000);
+  const hoje = diaLocal();
+  const vendas = vendasNoPeriodo(e.contas, { de: hoje, ate: hoje });
+  const semanaPassada = vendasNoPeriodo(e.contas, { de: diasAtras(7), ate: diasAtras(7) });
+  const fat = somaVendas(vendas);
+  const fatAnt = somaVendas(semanaPassada);
+  const variacao = fatAnt ? ((fat - fatAnt) / fatAnt) * 100 : null;
+  const ticket = vendas.length ? fat / vendas.length : 0;
+  const abertas = e.contas.filter((c) => c.status === "aberta" || c.status === "fechamento");
+  const mesasOcupadas = new Set(abertas.filter((c) => c.mesaId).map((c) => c.mesaId)).size;
+  const emFechamento = abertas.filter((c) => c.mesaId && c.status === "fechamento").length;
+  const emAberto = abertas.reduce((s, c) => s + total(c), 0);
+  const horas = porHora(vendas).filter((h) => h.hora >= 10 || h.valor > 0);
+  const faixa = horas.filter((h) => h.hora >= Math.min(11, ...horas.filter((x) => x.valor).map((x) => x.hora)) && h.hora <= Math.max(23, ...horas.filter((x) => x.valor).map((x) => x.hora)));
+  const maxHora = Math.max(1, ...faixa.map((h) => h.valor));
+  const canais = porCanal(vendas);
+  const totalCanais = canais.reduce((s, c) => s + c.valor, 0) || 1;
+  const formas = porForma(vendas, e.formasPagamento);
+  const totalFormas = formas.reduce((s, f) => s + f.valor, 0) || 1;
+  const top = porProduto(vendas).slice(0, 5);
+  const alertas = calcularAlertas(e, agora);
+  const dataHoje = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
 
   return (
     <div className="mx-auto max-w-[1280px] space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-2 pt-2">
         <div>
-          <p className="text-[12.5px] font-semibold text-acao first-letter:uppercase">{hoje}</p>
+          <p className="text-[12.5px] font-semibold text-acao first-letter:uppercase">{dataHoje}</p>
           <h1 className="font-slab text-[26px] font-extrabold uppercase leading-tight tracking-tight text-marca">Visão geral</h1>
         </div>
-        {sessao?.demo && <p className="text-[12px] text-mudo">Dados de exemplo · os números reais chegam com a Fase 1</p>}
+        {abertas.length > 0 && (
+          <p className="text-[12.5px] text-mudo">
+            <b className="num text-tinta">{brl(emAberto)}</b> em {abertas.length} conta(s) abertas
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi
           destaque
           rotulo="Faturamento hoje"
-          valor={brl(d.faturamentoHoje)}
+          valor={brl(fat)}
           icone={Wallet}
           detalhe={
-            <span className="inline-flex items-center gap-1 font-semibold">
-              <ArrowUpRight size={14} />
-              {variacao.toFixed(1).replace(".", ",")}% vs. semana passada
-            </span>
+            variacao === null ? (
+              "sem vendas no mesmo dia da semana passada"
+            ) : (
+              <span className="inline-flex items-center gap-1 font-semibold">
+                {variacao >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                {Math.abs(variacao).toFixed(1).replace(".", ",")}% vs. semana passada
+              </span>
+            )
           }
         />
-        <Kpi rotulo="Pedidos" valor={String(d.pedidosHoje)} icone={ShoppingBag} detalhe="em todos os canais" />
-        <Kpi rotulo="Ticket médio" valor={brl(d.ticketMedio)} icone={Receipt} />
+        <Kpi rotulo="Pedidos" valor={String(vendas.length)} icone={ShoppingBag} detalhe="pagos hoje, em todos os canais" />
+        <Kpi rotulo="Ticket médio" valor={brl(ticket)} icone={Receipt} />
         <Kpi
           rotulo="Mesas"
-          valor={`${d.mesas.ocupadas + d.mesas.emFechamento}/${totalMesas}`}
+          valor={`${mesasOcupadas}/${e.mesas.length}`}
           icone={Armchair}
           detalhe={
             <span>
-              <b className="text-st-preparo">{d.mesas.emFechamento}</b> em fechamento · <b className="text-ok">{d.mesas.livres}</b> livres
+              <b className="text-st-preparo">{emFechamento}</b> em fechamento · <b className="text-ok">{e.mesas.length - mesasOcupadas}</b> livres
             </span>
           }
         />
@@ -84,81 +114,109 @@ export default async function Dashboard() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card titulo="Vendas por hora" className="lg:col-span-2">
-          <div className="flex h-[190px] items-end gap-1.5 sm:gap-2.5" role="img" aria-label="Gráfico de vendas por hora">
-            {d.porHora.map((h) => (
-              <div key={h.hora} className="group flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5">
-                <span className="num hidden text-[10.5px] font-semibold text-mudo opacity-0 sm:block transition-opacity group-hover:opacity-100">{brl(h.valor).replace(",00", "")}</span>
-                <div className="w-full max-w-[34px] rounded-t-[8px] bg-acao transition-colors group-hover:bg-marca" style={{ height: `${(h.valor / maxHora) * 100}%` }} />
-                <span className="text-[11px] text-mudo">{h.hora}</span>
-              </div>
-            ))}
-          </div>
+          {fat === 0 ? (
+            <p className="flex h-[190px] items-center justify-center text-[13px] text-mudo">As vendas de hoje aparecem aqui assim que a primeira conta for paga.</p>
+          ) : (
+            <div className="flex h-[190px] items-end gap-1 sm:gap-2" role="img" aria-label="Gráfico de vendas por hora">
+              {faixa.map((h) => (
+                <div key={h.hora} className="group flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5">
+                  <span className="num hidden text-[10px] font-semibold text-mudo opacity-0 transition-opacity group-hover:opacity-100 sm:block">{h.valor ? brl(h.valor).replace(",00", "") : ""}</span>
+                  <div className="w-full max-w-[30px] rounded-t-[7px] bg-acao transition-colors group-hover:bg-marca" style={{ height: `${Math.max(h.valor ? 3 : 0, (h.valor / maxHora) * 100)}%` }} />
+                  <span className="text-[10.5px] text-mudo">{h.hora}h</span>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
 
         <Card titulo="Alertas">
-          <ul className="space-y-2.5">
-            {d.alertas.map((a) => {
-              const Icone = a.tipo === "atraso" ? AlarmClock : a.tipo === "estoque" ? Package : AlertTriangle;
-              return (
-                <li key={a.texto} className="flex gap-3 rounded-2xl border border-linha p-3">
-                  <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-[#FDF0D6] text-[#8A5A00]">
-                    <Icone size={16} />
-                  </span>
-                  <span className="text-[13px] leading-snug">{a.texto}</span>
-                </li>
-              );
-            })}
-          </ul>
+          {alertas.length ? (
+            <ul className="space-y-2.5">
+              {alertas.map((a) => {
+                const Icone = ICONE_ALERTA[a.tipo];
+                return (
+                  <li key={a.texto}>
+                    <Link href={a.href} className="flex gap-3 rounded-2xl border border-linha p-3 hover:bg-fundo">
+                      <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-[#FDF0D6] text-[#8A5A00]">
+                        <Icone size={16} />
+                      </span>
+                      <span className="text-[13px] leading-snug">{a.texto}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="flex items-center gap-2 rounded-2xl bg-[#E5F4EA] p-3 text-[13px] font-semibold text-[#1E7A41]">
+              <CheckCircle2 size={18} /> Tudo em dia por aqui.
+            </p>
+          )}
         </Card>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card titulo="Mais vendidos hoje" acao={{ href: "/relatorios", texto: "Ver relatório" }}>
-          <ul className="divide-y divide-linha">
-            {d.maisVendidos.map((p, i) => (
-              <li key={p.nome} className="flex items-center gap-3 py-2.5">
-                <span className="w-4 text-[12px] font-bold text-mudo">{i + 1}</span>
-                <span className="flex h-11 w-11 flex-none items-center justify-center rounded-[14px] bg-icone-fundo">
-                  <Image src={`/categorias/ic-${p.categoria}.png`} alt="" width={38} height={38} />
-                </span>
-                <span className="flex-1 text-[13.5px] font-medium leading-tight">
-                  {p.nome}
-                  <span className="block text-[11.5px] text-mudo">{p.qtd} vendidos</span>
-                </span>
-                <span className="num text-[13.5px] font-bold">{brl(p.total)}</span>
-              </li>
-            ))}
-          </ul>
+          {top.length ? (
+            <ul className="divide-y divide-linha">
+              {top.map((p, i) => {
+                const prod = e.produtos.find((x) => x.id === p.produtoId);
+                const cat = e.categorias.find((c) => c.id === prod?.categoriaId);
+                return (
+                  <li key={p.produtoId} className="flex items-center gap-3 py-2.5">
+                    <span className="w-4 text-[12px] font-bold text-mudo">{i + 1}</span>
+                    <span className="flex h-11 w-11 flex-none items-center justify-center overflow-hidden rounded-[14px] bg-icone-fundo">
+                      {prod?.foto ? <Image src={prod.foto} alt="" width={44} height={44} className="h-11 w-11 object-cover" /> : cat?.icone ? <Image src={cat.icone} alt="" width={38} height={38} /> : null}
+                    </span>
+                    <span className="min-w-0 flex-1 text-[13.5px] font-medium leading-tight">
+                      <span className="block truncate">{p.nome}</span>
+                      <span className="block text-[11.5px] text-mudo">{p.qtd} vendidos</span>
+                    </span>
+                    <span className="num text-[13.5px] font-bold">{brl(p.valor)}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="py-6 text-center text-[13px] text-mudo">Nenhuma venda hoje ainda.</p>
+          )}
         </Card>
 
         <Card titulo="Vendas por canal">
-          <ul className="space-y-3">
-            {d.porCanal.map((c) => (
-              <li key={c.canal}>
-                <div className="mb-1 flex justify-between text-[13px]">
-                  <span className="font-medium">{c.canal}</span>
-                  <span className="num font-semibold">{brl(c.valor)}</span>
-                </div>
-                <div className="h-2 rounded-full bg-secundario">
-                  <div className="h-2 rounded-full bg-acao" style={{ width: `${(c.valor / totalCanais) * 100}%` }} />
-                </div>
-              </li>
-            ))}
-          </ul>
+          {canais.length ? (
+            <ul className="space-y-3">
+              {canais.map((c) => (
+                <li key={c.canal}>
+                  <div className="mb-1 flex justify-between text-[13px]">
+                    <span className="font-medium">{c.rotulo}</span>
+                    <span className="num font-semibold">{brl(c.valor)}</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-secundario">
+                    <div className="h-2 rounded-full bg-acao" style={{ width: `${(c.valor / totalCanais) * 100}%` }} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="py-6 text-center text-[13px] text-mudo">Sem vendas no período.</p>
+          )}
         </Card>
 
-        <Card titulo="Formas de pagamento" acao={{ href: "/caixa", texto: "Abrir caixa" }}>
-          <ul className="space-y-3">
-            {d.pagamentos.map((p) => (
-              <li key={p.forma} className="flex items-center justify-between rounded-2xl bg-fundo px-3 py-2.5">
-                <span className="text-[13.5px] font-semibold">{p.forma}</span>
-                <span className="text-right">
-                  <span className="num block text-[13.5px] font-bold">{brl(p.valor)}</span>
-                  <span className="num block text-[11px] text-mudo">{((p.valor / totalPag) * 100).toFixed(0)}%</span>
-                </span>
-              </li>
-            ))}
-          </ul>
+        <Card titulo="Formas de pagamento" acao={{ href: "/caixa", texto: "Ir para o caixa" }}>
+          {formas.length ? (
+            <ul className="space-y-2">
+              {formas.map((p) => (
+                <li key={p.forma.id} className="flex items-center justify-between rounded-2xl bg-fundo px-3 py-2.5">
+                  <span className="text-[13.5px] font-semibold">{p.forma.nome}</span>
+                  <span className="text-right">
+                    <span className="num block text-[13.5px] font-bold">{brl(p.valor)}</span>
+                    <span className="num block text-[11px] text-mudo">{((p.valor / totalFormas) * 100).toFixed(0)}%</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="py-6 text-center text-[13px] text-mudo">Nenhum pagamento hoje.</p>
+          )}
         </Card>
       </div>
     </div>
