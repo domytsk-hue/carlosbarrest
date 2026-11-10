@@ -31,8 +31,8 @@ export const ARTIGOS: Artigo[] = [
     id: "atalhos-mesa",
     titulo: "Atalhos de teclado na conta da mesa",
     modulo: "mesas",
-    resumo: "F7 imprime, F6 recebe, F2 observação, Ctrl+J transfere, Ctrl+G agrupa/desagrupa.",
-    passos: ["F7: imprime a conta da mesa selecionada.", "F6: abre o fechamento da conta com pagamento.", "F2: observação do item selecionado (toque na linha do item para selecionar).", "Ctrl+J: transfere a mesa. Se a mesa de destino estiver ocupada, o sistema pergunta antes de juntar as contas.", "Ctrl+G: agrupa os itens repetidos numa linha só; se já estiverem agrupados, separa um por linha (mesmo botão Agrupar/Desagrupar)."],
+    resumo: "F7 imprime, F6 recebe, F9 cancela a mesa, Ctrl+J transfere a mesa, Ctrl+G agrupa/desagrupa.",
+    passos: ["F7: imprime a conta da mesa selecionada.", "F6: abre o fechamento da conta com pagamento.", "F9: cancela a mesa (pede o motivo). Observação só pode ser escrita ao lançar o produto; depois de enviado, não muda.", "Ctrl+J: transfere a mesa. Se a mesa de destino estiver ocupada, o sistema pergunta antes de juntar as contas.", "Ctrl+G: agrupa os itens repetidos numa linha só; se já estiverem agrupados, separa um por linha (mesmo botão Agrupar/Desagrupar)."],
   },
   {
     id: "localizacao-mesa",

@@ -9,8 +9,6 @@ import {
   Combine,
   HandPlatter,
   Layers,
-  Merge,
-  MessageSquareText,
   MoveRight,
   Plus,
   Printer,
@@ -28,10 +26,8 @@ import {
   aplicarDesconto,
   cancelarConta,
   cancelarItem,
-  definirObsItem,
   definirServico,
   desagruparItens,
-  juntarContas,
   pedirConta,
   reabrirConta,
   transferirItens,
@@ -57,8 +53,7 @@ export function PainelConta({ contaId, aoFechar, semAcoes }: { contaId: string; 
   const funcionarios = useLoja((e) => e.funcionarios);
   const abertas = useLoja((e) => e.contas.filter((c) => c.status === "aberta" || c.status === "fechamento"));
   const agora = useRelogio();
-  const [modal, setModal] = useState<null | "lancar" | "pagar" | "desconto" | "servico" | "transferir" | "juntar" | "cancelar" | "obs" | "mesa" | { item: string }>(null);
-  const [itemSel, setItemSel] = useState<string | null>(null);
+  const [modal, setModal] = useState<null | "lancar" | "pagar" | "desconto" | "servico" | "transferir" | "cancelar" | "mesa" | { item: string }>(null);
   const [mesaDestino, setMesaDestino] = useState("");
   const [confirmarJuntar, setConfirmarJuntar] = useState(false);
   const [selecionados, setSelecionados] = useState<string[]>([]);
@@ -78,7 +73,7 @@ export function PainelConta({ contaId, aoFechar, semAcoes }: { contaId: string; 
     else if (podeDesagrupar) desagruparItens(conta.id);
   }
 
-  // Atalhos da conta aberta: F7 imprime, F6 recebe, F2 observação do item, Ctrl+J transfere a mesa, Ctrl+G agrupa/desagrupa
+  // Atalhos da conta aberta: F7 imprime, F6 recebe, F9 cancela, Ctrl+J transfere a mesa, Ctrl+G agrupa/desagrupa
   const atalhos = useRef<(e: KeyboardEvent) => void>(() => {});
   atalhos.current = (ev: KeyboardEvent) => {
     if (!conta || modal) return;
@@ -91,9 +86,10 @@ export function PainelConta({ contaId, aoFechar, semAcoes }: { contaId: string; 
     } else if (tecla === "F6" && aberta && itensValidos(conta).length) {
       ev.preventDefault();
       setModal("pagar");
-    } else if (tecla === "F2" && aberta && conta.itens.some((i) => !i.cancelado)) {
+    } else if (tecla === "F9" && aberta) {
       ev.preventDefault();
-      abrirObs();
+      setTexto("");
+      setModal("cancelar");
     } else if (tecla === "Ctrl+J" && aberta && conta.mesaId) {
       ev.preventDefault();
       abrirTransferirMesa();
@@ -109,14 +105,6 @@ export function PainelConta({ contaId, aoFechar, semAcoes }: { contaId: string; 
   }, []);
 
   if (!conta) return null;
-  const itemObs = conta.itens.find((i) => i.id === itemSel && !i.cancelado) ?? conta.itens.filter((i) => !i.cancelado).at(-1);
-  function abrirObs() {
-    const alvo = conta!.itens.find((i) => i.id === itemSel && !i.cancelado) ?? conta!.itens.filter((i) => !i.cancelado).at(-1);
-    if (!alvo) return;
-    setItemSel(alvo.id);
-    setTexto(alvo.obs ?? "");
-    setModal("obs");
-  }
   function abrirTransferirMesa() {
     setMesaDestino("");
     setConfirmarJuntar(false);
@@ -157,17 +145,15 @@ export function PainelConta({ contaId, aoFechar, semAcoes }: { contaId: string; 
           <Acao icone={Printer} rotulo="Preparo" onClick={() => imprimir({ tipo: "preparo", conta, pedidoNumero: conta.itens.at(-1)?.pedidoNumero })} disabled={!conta.itens.length} />
           <Acao icone={BadgePercent} rotulo="Desconto" onClick={() => { setValor(conta.desconto); setTexto(""); setModal("desconto"); }} />
           {!semAcoes?.includes("servico") && <Acao icone={HandPlatter} rotulo="Serviço" onClick={() => setModal("servico")} />}
-          {!semAcoes?.includes("transferir") && <Acao icone={ArrowRightLeft} rotulo="Transferir" onClick={() => { setSelecionados([]); setDestino(""); setModal("transferir"); }} disabled={!conta.itens.length || !outras.length} />}
-          <Acao icone={MessageSquareText} rotulo="Obs. (F2)" onClick={abrirObs} disabled={!conta.itens.some((i) => !i.cancelado)} />
-          {conta.mesaId && !semAcoes?.includes("transferir") && <Acao icone={MoveRight} rotulo="Mesa (Ctrl+J)" onClick={abrirTransferirMesa} />}
-          {!semAcoes?.includes("juntar") && <Acao icone={Merge} rotulo="Juntar" onClick={() => { setDestino(""); setModal("juntar"); }} disabled={!outras.length} />}
+          {!semAcoes?.includes("transferir") && <Acao icone={ArrowRightLeft} rotulo="Transferir itens" onClick={() => { setSelecionados([]); setDestino(""); setModal("transferir"); }} disabled={!conta.itens.length || !outras.length} />}
+          {conta.mesaId && !semAcoes?.includes("transferir") && <Acao icone={MoveRight} rotulo="Transferir mesa" onClick={abrirTransferirMesa} />}
           <Acao
             icone={podeAgrupar || !podeDesagrupar ? Combine : Split}
             rotulo={podeAgrupar || !podeDesagrupar ? "Agrupar (Ctrl+G)" : "Desagrupar (Ctrl+G)"}
             onClick={alternarGrupo}
             disabled={!podeAgrupar && !podeDesagrupar}
           />
-          <Acao icone={Ban} rotulo="Cancelar" onClick={() => { setTexto(""); setModal("cancelar"); }} />
+          <Acao icone={Ban} rotulo={conta.mesaId ? "Cancelar mesa (F9)" : "Cancelar (F9)"} doisCliques onClick={() => { setTexto(""); setModal("cancelar"); }} />
         </div>
       )}
       {fechada && conta.status === "paga" && (
@@ -198,8 +184,7 @@ export function PainelConta({ contaId, aoFechar, semAcoes }: { contaId: string; 
             {conta.itens.map((i) => (
               <tr
                 key={i.id}
-                onClick={() => !i.cancelado && setItemSel(i.id)}
-                className={clsx("cursor-pointer", i.cancelado && "text-mudo line-through opacity-60", !i.cancelado && itemObs?.id === i.id && itemSel && "bg-rosado")}
+                className={clsx(i.cancelado && "text-mudo line-through opacity-60")}
               >
                 <td className="px-3 py-2">
                   <span className="font-medium">{i.nome}</span>
@@ -314,34 +299,6 @@ export function PainelConta({ contaId, aoFechar, semAcoes }: { contaId: string; 
         </Botao>
       </Modal>
 
-      <Modal aberto={modal === "obs"} aoFechar={fechar} titulo="Observação do item (F2)" largura="sm">
-        {itemObs && (
-          <div className="space-y-3">
-            <p className="text-[13px]">
-              <b>
-                {itemObs.qtd}x {itemObs.nome}
-              </b>{" "}
-              <span className="text-mudo">· pedido #{itemObs.pedidoNumero}</span>
-            </p>
-            {conta.itens.filter((i) => !i.cancelado).length > 1 && (
-              <Selecao value={itemObs.id} onChange={(ev) => { const it = conta.itens.find((i) => i.id === ev.target.value); setItemSel(ev.target.value); setTexto(it?.obs ?? ""); }} aria-label="Item">
-                {conta.itens.filter((i) => !i.cancelado).map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {i.qtd}x {i.nome} {i.obs ? `· ${i.obs}` : ""}
-                  </option>
-                ))}
-              </Selecao>
-            )}
-            <label className="block">
-              <span className="mb-1.5 block text-[12.5px] font-semibold">Observação</span>
-              <Entrada autoFocus value={texto} onChange={(ev) => setTexto(ev.target.value)} onKeyDown={(ev) => { if (ev.key === "Enter") { definirObsItem(conta.id, itemObs.id, texto); fechar(); } }} placeholder="Ex.: sem cebola, bem passado" />
-            </label>
-            <Botao className="w-full" onClick={() => { definirObsItem(conta.id, itemObs.id, texto); fechar(); }}>
-              Salvar observação
-            </Botao>
-          </div>
-        )}
-      </Modal>
 
       <Modal aberto={modal === "mesa"} aoFechar={fechar} titulo={`Transferir ${nome} (Ctrl+J)`} largura="sm">
         {(() => {
@@ -399,13 +356,6 @@ export function PainelConta({ contaId, aoFechar, semAcoes }: { contaId: string; 
         })()}
       </Modal>
 
-      <Modal aberto={modal === "juntar"} aoFechar={fechar} titulo={`Juntar com ${nome}`} largura="sm">
-        <p className="mb-3 text-[13px] text-mudo">Os itens e pagamentos da conta escolhida passam para {nome}, e ela é encerrada.</p>
-        <DestinoSelect contas={outras} mesas={mesas} valor={destino} aoMudar={setDestino} />
-        <Botao className="mt-3 w-full" disabled={!destino} onClick={() => { juntarContas(conta.id, destino); fechar(); }}>
-          <Layers size={16} /> Juntar contas
-        </Botao>
-      </Modal>
 
       <Modal aberto={modal === "cancelar" || (typeof modal === "object" && modal !== null)} aoFechar={fechar} titulo={modal === "cancelar" ? "Cancelar conta inteira" : "Cancelar item"} largura="sm">
         <p className="mb-3 text-[12.5px] text-mudo">Escolha o motivo (fica na auditoria):</p>
