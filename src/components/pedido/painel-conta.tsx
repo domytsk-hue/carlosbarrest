@@ -47,7 +47,7 @@ import { PagamentoModal } from "./pagamento";
 export { nomeConta };
 
 const COR_PREPARO = { pendente: "amarela", preparo: "laranja", pronto: "verde", entregue: "neutra" } as const;
-const MOTIVOS_CANCELAMENTO = ["Lançado errado", "Cliente cancelou", "Outros"] as const;
+const MOTIVOS_CANCELAMENTO = ["Lançado errado", "Cliente cancelou"] as const;
 const ROTULO_PREPARO = { pendente: "Na fila", preparo: "Preparando", pronto: "Pronto", entregue: "Entregue" } as const;
 
 /** Painel completo de uma conta: itens, totais e todas as ações das telas de operação. */
@@ -167,7 +167,7 @@ export function PainelConta({ contaId, aoFechar, semAcoes }: { contaId: string; 
             onClick={alternarGrupo}
             disabled={!podeAgrupar && !podeDesagrupar}
           />
-          <Acao icone={Ban} rotulo="Cancelar" onClick={() => setModal("cancelar")} />
+          <Acao icone={Ban} rotulo="Cancelar" onClick={() => { setTexto(""); setModal("cancelar"); }} />
         </div>
       )}
       {fechada && conta.status === "paga" && (
@@ -216,7 +216,7 @@ export function PainelConta({ contaId, aoFechar, semAcoes }: { contaId: string; 
                 <td className="hidden px-2 py-2 text-[12px] text-mudo sm:table-cell">{funcionarios.find((f) => f.id === i.atendenteId)?.nome}</td>
                 <td className="px-2 py-2 text-right">
                   {!i.cancelado && !fechada && (
-                    <button onClick={(ev) => { ev.stopPropagation(); setModal({ item: i.id }); }} className="rounded-full p-1.5 text-mudo hover:bg-rosado hover:text-st-cancelado" aria-label="Cancelar item">
+                    <button onClick={(ev) => { ev.stopPropagation(); setTexto(""); setModal({ item: i.id }); }} className="rounded-full p-1.5 text-mudo hover:bg-rosado hover:text-st-cancelado" aria-label="Cancelar item">
                       <X size={15} />
                     </button>
                   )}
@@ -409,28 +409,35 @@ export function PainelConta({ contaId, aoFechar, semAcoes }: { contaId: string; 
 
       <Modal aberto={modal === "cancelar" || (typeof modal === "object" && modal !== null)} aoFechar={fechar} titulo={modal === "cancelar" ? "Cancelar conta inteira" : "Cancelar item"} largura="sm">
         <p className="mb-3 text-[12.5px] text-mudo">Escolha o motivo (fica na auditoria):</p>
-        <div className="grid gap-2">
-          {MOTIVOS_CANCELAMENTO.map((motivo) => (
-            <Botao
-              key={motivo}
-              variante="perigo"
-              tamanho="lg"
-              className="w-full"
-              onClick={() => {
-                if (modal === "cancelar") {
-                  cancelarConta(conta.id, motivo);
-                  fechar();
-                  aoFechar?.();
-                } else if (typeof modal === "object" && modal) {
-                  cancelarItem(conta.id, modal.item, motivo);
-                  fechar();
-                }
-              }}
-            >
-              <Ban size={17} /> {motivo}
-            </Botao>
-          ))}
-        </div>
+        {(() => {
+          const cancelar = (motivo: string) => {
+            if (modal === "cancelar") {
+              cancelarConta(conta.id, motivo);
+              fechar();
+              aoFechar?.();
+            } else if (typeof modal === "object" && modal) {
+              cancelarItem(conta.id, modal.item, motivo);
+              fechar();
+            }
+          };
+          const outro = texto.trim();
+          return (
+            <div className="grid gap-2">
+              {MOTIVOS_CANCELAMENTO.map((motivo) => (
+                <Botao key={motivo} variante="perigo" tamanho="lg" className="w-full" onClick={() => cancelar(motivo)}>
+                  <Ban size={17} /> {motivo}
+                </Botao>
+              ))}
+              <div className="mt-1 rounded-2xl border border-linha bg-card p-3">
+                <span className="mb-1.5 block text-[12.5px] font-semibold">Outro motivo</span>
+                <Entrada value={texto} onChange={(ev) => setTexto(ev.target.value)} onKeyDown={(ev) => ev.key === "Enter" && outro && cancelar(outro)} placeholder="Digite o motivo" />
+                <Botao variante="perigo" className="mt-2 w-full" disabled={!outro} onClick={() => cancelar(outro)}>
+                  <Ban size={16} /> Cancelar com esse motivo
+                </Botao>
+              </div>
+            </div>
+          );
+        })()}
       </Modal>
     </div>
   );
