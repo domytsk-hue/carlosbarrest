@@ -47,6 +47,7 @@ import { PagamentoModal } from "./pagamento";
 export { nomeConta };
 
 const COR_PREPARO = { pendente: "amarela", preparo: "laranja", pronto: "verde", entregue: "neutra" } as const;
+const MOTIVOS_CANCELAMENTO = ["Lançado errado", "Cliente cancelou", "Outros"] as const;
 const ROTULO_PREPARO = { pendente: "Na fila", preparo: "Preparando", pronto: "Pronto", entregue: "Entregue" } as const;
 
 /** Painel completo de uma conta: itens, totais e todas as ações das telas de operação. */
@@ -66,7 +67,18 @@ export function PainelConta({ contaId, aoFechar, semAcoes }: { contaId: string; 
   const [destino, setDestino] = useState("");
   const [enviado, setEnviado] = useState<number | null>(null);
 
-  // Atalhos da conta aberta: F7 imprime, F6 recebe, F2 observação do item, Ctrl+J transfere a mesa
+  // Agrupar e Desagrupar viram um botão só: agrupa se há itens repetidos, senão desagrupa
+  const validosAg = conta ? conta.itens.filter((i) => !i.cancelado) : [];
+  const chaveAg = (i: { produtoId: string; preco: number; obs?: string }) => `${i.produtoId}|${i.preco}|${i.obs ?? ""}`;
+  const podeAgrupar = new Set(validosAg.map(chaveAg)).size < validosAg.length;
+  const podeDesagrupar = validosAg.some((i) => i.qtd > 1 && Number.isInteger(i.qtd));
+  function alternarGrupo() {
+    if (!conta) return;
+    if (podeAgrupar) agruparItens(conta.id);
+    else if (podeDesagrupar) desagruparItens(conta.id);
+  }
+
+  // Atalhos da conta aberta: F7 imprime, F6 recebe, F2 observação do item, Ctrl+J transfere a mesa, Ctrl+G agrupa/desagrupa
   const atalhos = useRef<(e: KeyboardEvent) => void>(() => {});
   atalhos.current = (ev: KeyboardEvent) => {
     if (!conta || modal) return;
@@ -85,6 +97,9 @@ export function PainelConta({ contaId, aoFechar, semAcoes }: { contaId: string; 
     } else if (tecla === "Ctrl+J" && aberta && conta.mesaId) {
       ev.preventDefault();
       abrirTransferirMesa();
+    } else if (tecla === "Ctrl+G" && aberta) {
+      ev.preventDefault();
+      alternarGrupo();
     }
   };
   useEffect(() => {
@@ -146,9 +161,13 @@ export function PainelConta({ contaId, aoFechar, semAcoes }: { contaId: string; 
           <Acao icone={MessageSquareText} rotulo="Obs. (F2)" onClick={abrirObs} disabled={!conta.itens.some((i) => !i.cancelado)} />
           {conta.mesaId && !semAcoes?.includes("transferir") && <Acao icone={MoveRight} rotulo="Mesa (Ctrl+J)" onClick={abrirTransferirMesa} />}
           {!semAcoes?.includes("juntar") && <Acao icone={Merge} rotulo="Juntar" onClick={() => { setDestino(""); setModal("juntar"); }} disabled={!outras.length} />}
-          <Acao icone={Combine} rotulo="Agrupar" onClick={() => agruparItens(conta.id)} disabled={conta.itens.length < 2} />
-          <Acao icone={Split} rotulo="Desagrupar" onClick={() => desagruparItens(conta.id)} disabled={!conta.itens.some((i) => i.qtd > 1)} />
-          <Acao icone={Ban} rotulo="Cancelar" onClick={() => { setTexto(""); setModal("cancelar"); }} />
+          <Acao
+            icone={podeAgrupar || !podeDesagrupar ? Combine : Split}
+            rotulo={podeAgrupar || !podeDesagrupar ? "Agrupar (Ctrl+G)" : "Desagrupar (Ctrl+G)"}
+            onClick={alternarGrupo}
+            disabled={!podeAgrupar && !podeDesagrupar}
+          />
+          <Acao icone={Ban} rotulo="Cancelar" onClick={() => setModal("cancelar")} />
         </div>
       )}
       {fechada && conta.status === "paga" && (
@@ -197,7 +216,7 @@ export function PainelConta({ contaId, aoFechar, semAcoes }: { contaId: string; 
                 <td className="hidden px-2 py-2 text-[12px] text-mudo sm:table-cell">{funcionarios.find((f) => f.id === i.atendenteId)?.nome}</td>
                 <td className="px-2 py-2 text-right">
                   {!i.cancelado && !fechada && (
-                    <button onClick={(ev) => { ev.stopPropagation(); setTexto(""); setModal({ item: i.id }); }} className="rounded-full p-1.5 text-mudo hover:bg-rosado hover:text-st-cancelado" aria-label="Cancelar item">
+                    <button onClick={(ev) => { ev.stopPropagation(); setModal({ item: i.id }); }} className="rounded-full p-1.5 text-mudo hover:bg-rosado hover:text-st-cancelado" aria-label="Cancelar item">
                       <X size={15} />
                     </button>
                   )}
@@ -389,27 +408,29 @@ export function PainelConta({ contaId, aoFechar, semAcoes }: { contaId: string; 
       </Modal>
 
       <Modal aberto={modal === "cancelar" || (typeof modal === "object" && modal !== null)} aoFechar={fechar} titulo={modal === "cancelar" ? "Cancelar conta inteira" : "Cancelar item"} largura="sm">
-        <label className="block">
-          <span className="mb-1.5 block text-[12.5px] font-semibold">Motivo (fica na auditoria)</span>
-          <Entrada autoFocus value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Ex.: lançado errado" />
-        </label>
-        <Botao
-          variante="perigo"
-          className="mt-3 w-full"
-          disabled={!texto.trim()}
-          onClick={() => {
-            if (modal === "cancelar") {
-              cancelarConta(conta.id, texto);
-              fechar();
-              aoFechar?.();
-            } else if (typeof modal === "object" && modal) {
-              cancelarItem(conta.id, modal.item, texto);
-              fechar();
-            }
-          }}
-        >
-          Confirmar cancelamento
-        </Botao>
+        <p className="mb-3 text-[12.5px] text-mudo">Escolha o motivo (fica na auditoria):</p>
+        <div className="grid gap-2">
+          {MOTIVOS_CANCELAMENTO.map((motivo) => (
+            <Botao
+              key={motivo}
+              variante="perigo"
+              tamanho="lg"
+              className="w-full"
+              onClick={() => {
+                if (modal === "cancelar") {
+                  cancelarConta(conta.id, motivo);
+                  fechar();
+                  aoFechar?.();
+                } else if (typeof modal === "object" && modal) {
+                  cancelarItem(conta.id, modal.item, motivo);
+                  fechar();
+                }
+              }}
+            >
+              <Ban size={17} /> {motivo}
+            </Botao>
+          ))}
+        </div>
       </Modal>
     </div>
   );
