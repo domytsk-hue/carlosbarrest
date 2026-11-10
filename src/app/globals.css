@@ -94,6 +94,29 @@ body {
 body {
   font-family: var(--font-sans);
   -webkit-tap-highlight-color: transparent;
+  /* Dom: não deixar copiar textos nem imagens; só campos de digitar ficam selecionáveis */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+html {
+  /* Sem zoom por gesto no celular/tablet */
+  touch-action: manipulation;
+}
+
+input,
+textarea,
+select,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+img,
+svg {
+  -webkit-user-drag: none;
 }
 
 /* Valores e tabelas sempre com números tabulares */

@@ -36,10 +36,10 @@ export const ARTIGOS: Artigo[] = [
   },
   {
     id: "localizacao-mesa",
-    titulo: "Mudar a localização das mesas",
+    titulo: "Mudar o setor das mesas",
     modulo: "mesas",
     resumo: "Cada mesa pode estar no Salão, na Varanda ou na Rua.",
-    passos: ["Em Mesas, toque em Localização.", "Escolha Salão, Varanda ou Rua em cada mesa (ou mude todas as mostradas de uma vez).", "Os pedidos e o histórico continuam na mesa; a localização aparece junto do número."],
+    passos: ["Em Mesas, toque em Setor.", "Escolha Salão, Varanda ou Rua em cada mesa (ou mude todas as mostradas de uma vez).", "Os pedidos e o histórico continuam na mesa; o setor aparece junto do número."],
   },
   {
     id: "fiado",

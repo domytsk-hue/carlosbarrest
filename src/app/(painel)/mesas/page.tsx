@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { Armchair, MapPin, Plus, Search, X } from "lucide-react";
+import { Armchair, Plus, Search, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Lancador } from "@/components/pedido/lancador";
 import { PainelConta } from "@/components/pedido/painel-conta";
@@ -165,7 +165,7 @@ export default function MesasPage() {
             onClick={() => setOrganizando((o) => !o)}
             className={clsx("flex items-center gap-1.5 rounded-full px-3 py-2 text-[12.5px] font-semibold shadow-card", organizando ? "bg-tinta text-fundo" : "bg-card")}
           >
-            <MapPin size={15} /> Localização
+            <IconeSetor size={15} /> Setor
           </button>
           <div className="flex gap-1 rounded-full bg-card p-1 shadow-card">
             {areas.map((a) => (
@@ -312,5 +312,15 @@ export default function MesasPage() {
         {lancando && <Lancador contaId={lancando.contaId} titulo={`Mesa ${lancando.numero}`} totalAtual={lancando.totalAtual} aoEnviar={() => setLancando(null)} />}
       </Modal>
     </div>
+  );
+}
+
+/** Ícone de setor: círculo com haste (alfinete), no traço dos ícones do sistema. */
+function IconeSetor({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" aria-hidden>
+      <circle cx="12" cy="8" r="5" />
+      <path d="M12 13v9" />
+    </svg>
   );
 }
