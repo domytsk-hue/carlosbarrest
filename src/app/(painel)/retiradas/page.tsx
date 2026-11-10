@@ -45,7 +45,7 @@ export default function RetiradasPage() {
   return (
     <div className="mx-auto max-w-[1400px]">
       <Titulo sub="Pedidos para o cliente buscar no balcão (para viagem e cardápio online com retirada)">Retiradas</Titulo>
-      <div className="grid gap-4 lg:grid-cols-[1fr_480px]">
+      <div className="grid gap-4 lg:grid-cols-[1fr_var(--painel-direito)]">
         <div className="grid content-start gap-4 md:grid-cols-3">
           {colunas.map((col) => {
             const lista = contas.filter((c) => etapa(c) === col.id).sort((a, b) => a.abertaEm.localeCompare(b.abertaEm));

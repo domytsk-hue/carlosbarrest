@@ -17,9 +17,9 @@ export function ThemeToggle() {
   };
 
   return (
-    <button onClick={alternar} className="flex w-full items-center gap-2 text-[13px] font-medium text-mudo hover:text-tinta">
+    <button onClick={alternar} title={escuro ? "Modo claro" : "Modo escuro"} className="flex w-full items-center gap-2 text-[13px] font-medium text-mudo hover:text-tinta">
       {escuro ? <Sun size={17} /> : <Moon size={17} />}
-      {escuro ? "Modo claro" : "Modo escuro"}
+      <span>{escuro ? "Modo claro" : "Modo escuro"}</span>
     </button>
   );
 }
