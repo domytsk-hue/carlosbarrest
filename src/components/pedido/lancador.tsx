@@ -3,13 +3,13 @@
 import clsx from "clsx";
 import Image from "next/image";
 import { MessageSquareText, Minus, Plus, Scale, Search, Send, Trash2, UtensilsCrossed } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { brl } from "@/lib/dominio/calculos";
 import type { Produto } from "@/lib/dominio/tipos";
 import { lancarItens, type ItemNovo } from "@/lib/loja/acoes";
 import { useLoja } from "@/lib/loja/loja";
 import { balancaDisponivel, lerPeso } from "@/lib/integracoes/balanca";
-import { Botao, EntradaValor, Modal, Selecao } from "../ui";
+import { Botao, EntradaValor, JANELA_DOIS_CLIQUES, Modal, Selecao, useDoisCliques } from "../ui";
 
 type Linha = ItemNovo & { chave: string };
 
@@ -66,6 +66,20 @@ export function Lancador({
   const [peso, setPeso] = useState(0);
   const [msgBalanca, setMsgBalanca] = useState("");
 
+  // Lançar produto pede dois cliques: o primeiro marca o produto, o segundo (até 2,5 s) adiciona.
+  const [armado, setArmado] = useState<string | null>(null);
+  const timerArmado = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(timerArmado.current), []);
+  function tocarProduto(p: Produto) {
+    clearTimeout(timerArmado.current);
+    if (armado === p.id) {
+      setArmado(null);
+      return adicionar(p);
+    }
+    setArmado(p.id);
+    timerArmado.current = setTimeout(() => setArmado(null), JANELA_DOIS_CLIQUES);
+  }
+
   function adicionar(p: Produto) {
     if (p.porKg) {
       setPeso(0);
@@ -89,6 +103,7 @@ export function Lancador({
     setLinhas([]);
     aoEnviar?.(n);
   }
+  const botaoEnviar = useDoisCliques(enviar);
 
   async function lerBalanca() {
     setMsgBalanca("Lendo a balança…");
@@ -172,12 +187,25 @@ export function Lancador({
         <div className={clsx("grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4", !compacto && "lg:max-h-[60dvh] lg:overflow-y-auto lg:pr-1")}>
           {visiveis.map((p) => {
             const qtd = linhas.filter((l) => l.produtoId === p.id).reduce((s, l) => s + l.qtd, 0);
+            const marcado = armado === p.id;
             return (
               <button
                 key={p.id}
-                onClick={() => adicionar(p)}
-                className={clsx("relative flex flex-col rounded-[18px] bg-card p-1.5 pb-2.5 text-left shadow-card transition-transform active:scale-[.98]", qtd > 0 && "ring-2 ring-acao")}
+                onClick={() => tocarProduto(p)}
+                title={`${p.nome} · dois cliques para adicionar`}
+                aria-label={marcado ? `${p.nome}: clique de novo para adicionar` : p.nome}
+                className={clsx(
+                  "relative flex touch-manipulation select-none flex-col rounded-[18px] p-1.5 pb-2.5 text-left shadow-card transition-transform active:scale-[.98]",
+                  marcado ? "bg-rosado ring-2 ring-acao" : "bg-card",
+                  qtd > 0 && "ring-2 ring-acao",
+                )}
               >
+                {marcado && (
+                  <span className="absolute inset-x-1.5 top-1.5 z-10 rounded-t-[13px] bg-acao py-1 text-center text-[11.5px] font-bold text-white">
+                    <span className="lg:hidden">Toque de novo</span>
+                    <span className="hidden lg:inline">Clique de novo</span>
+                  </span>
+                )}
                 {p.foto ? (
                   <Image src={p.foto} alt="" width={200} height={200} className="aspect-[4/3] w-full rounded-[13px] bg-white object-cover" />
                 ) : (
@@ -235,7 +263,7 @@ export function Lancador({
               </li>
             );
           })}
-          {!linhas.length && <li className="py-6 text-center text-[12.5px] text-mudo">Toque nos produtos para adicionar.</li>}
+          {!linhas.length && <li className="py-6 text-center text-[12.5px] text-mudo">Dois cliques (ou dois toques) no produto para adicionar.</li>}
         </ul>
         <div className="mt-3 space-y-1 border-t border-linha pt-3 text-[13px]">
           <div className="flex justify-between">
@@ -261,8 +289,24 @@ export function Lancador({
               ))}
           </Selecao>
         </label>
-        <Botao variante="ok" tamanho="lg" className="mt-3 w-full" disabled={!linhas.length} onClick={enviar}>
-          <Send size={18} /> {rotuloEnviar}
+        <Botao
+          variante={botaoEnviar.armado ? "primario" : "ok"}
+          tamanho="lg"
+          className="mt-3 w-full touch-manipulation"
+          disabled={!linhas.length}
+          onClick={botaoEnviar.clicar}
+          onBlur={botaoEnviar.desarmar}
+          title="Dois cliques para enviar"
+        >
+          <Send size={18} />{" "}
+          {botaoEnviar.armado ? (
+            <>
+              <span className="lg:hidden">Toque de novo para enviar</span>
+              <span className="hidden lg:inline">Clique de novo para enviar</span>
+            </>
+          ) : (
+            rotuloEnviar
+          )}
         </Botao>
       </div>
       {modalPeso}
