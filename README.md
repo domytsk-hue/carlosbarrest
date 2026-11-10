@@ -1,4 +1,4 @@
-# Carlo's · Sistema de Gestão para Restaurantes
+# Carlos · Sistema de Gestão para Restaurantes
 
 Sistema completo de gestão para restaurantes: mesas, comandas, balcão, entregas, caixa, estoque, financeiro, DRE, cardápio digital, Pix, integrações (iFood, aiqfome, Stone) e marketing.
 

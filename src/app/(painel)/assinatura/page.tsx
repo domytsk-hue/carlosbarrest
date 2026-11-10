@@ -80,7 +80,7 @@ export default function AssinaturaPage() {
         <div className="flex flex-wrap items-center gap-3">
           <MessageCircle size={26} className="text-acao" />
           <p className="flex-1 text-[13.5px]">
-            Valores de referência para o lançamento. A cobrança recorrente (cartão ou boleto) entra quando o sistema for oferecido para outros restaurantes; o Carlo&apos;s usa o plano completo.
+            Valores de referência para o lançamento. A cobrança recorrente (cartão ou boleto) entra quando o sistema for oferecido para outros restaurantes; o Carlos usa o plano completo.
           </p>
         </div>
       </Cartao>

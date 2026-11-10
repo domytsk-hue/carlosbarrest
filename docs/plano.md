@@ -4,7 +4,7 @@
 >
 > **Revisão 2 (09/11/2026):** incorporadas as funcionalidades observadas nos 19 prints do sistema de referência.
 >
-> **Revisão 3 (09/11/2026):** definida a identidade visual (Carlo's Bar & Restaurante), com guia completo, logo e ícones em `/mnt/project-files/identidade-visual/`. Incorporado também o app de cardápio do Carlos Bar, que já existe.
+> **Revisão 3 (09/11/2026):** definida a identidade visual (Carlos Bar & Restaurante), com guia completo, logo e ícones em `/mnt/project-files/identidade-visual/`. Incorporado também o app de cardápio do Carlos Bar, que já existe.
 
 ---
 
@@ -16,7 +16,7 @@ Usamos como referência funcional um sistema desktop já consolidado no mercado 
 
 ### Identidade visual
 
-O sistema usa a identidade visual do **Carlo's Bar & Restaurante**, a mesma do cardápio online que já está no ar. O guia completo está em `identidade-visual/identidade-visual.md`, e o logo (SVG e PNG), os ícones do app e os 13 ícones 3D de categoria estão na mesma pasta. Em resumo:
+O sistema usa a identidade visual do **Carlos Bar & Restaurante**, a mesma do cardápio online que já está no ar. O guia completo está em `identidade-visual/identidade-visual.md`, e o logo (SVG e PNG), os ícones do app e os 13 ícones 3D de categoria estão na mesma pasta. Em resumo:
 
 - **Cores:** vermelho-vinho da marca `#9E1B1E`, vermelho de ação `#B8322A` (botões, links, foco), dourado `#F2A93B` (destaques, "mais pedido"), fundo creme `#F7EEE3`, cards `#FFFBF6`, texto marrom escuro `#2A1A16`, texto secundário `#7A685F`, bordas `#EADCCD`, verde de sucesso `#2E9E55`. Sombras sempre quentes, em tom de marrom.
 - **Tipografia:** Poppins em toda a interface; Roboto Slab 800 em caixa alta para títulos de impacto. Números tabulares em valores e tabelas.
@@ -247,5 +247,5 @@ O ponto mais importante continua sendo que **todo canal de venda vira um `pedido
 4. **Emissão fiscal:** confirmar se a NFC-e entra no escopo.
 5. **Provedor de Pix:** escolher o PSP.
 6. **Credenciamentos:** iniciar cedo os cadastros no iFood, aiqfome, Stone e WhatsApp Business.
-7. ~~Nome e identidade visual~~ **Definido:** identidade do Carlo's Bar & Restaurante (Revisão 3). Falta só decidir o nome do produto, caso ele seja vendido para outros restaurantes; nesse caso, a identidade do Carlos Bar vira o tema padrão e cada restaurante troca logo e cor principal.
+7. ~~Nome e identidade visual~~ **Definido:** identidade do Carlos Bar & Restaurante (Revisão 3). Falta só decidir o nome do produto, caso ele seja vendido para outros restaurantes; nesse caso, a identidade do Carlos Bar vira o tema padrão e cada restaurante troca logo e cor principal.
 8. **Projeto Supabase:** reaproveitar o do cardápio atual ou criar um novo e migrar.

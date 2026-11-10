@@ -20,7 +20,7 @@ const SESSAO_DEMO: Sessao = {
   nome: "Admin",
   funcao: "Dono",
   papel: null,
-  restaurante: "Carlo's Bar & Restaurante",
+  restaurante: "Carlos Bar & Restaurante",
   restauranteId: null,
   caixa: "Caixa 1",
   demo: true,

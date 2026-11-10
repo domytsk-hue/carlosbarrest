@@ -117,6 +117,16 @@ export function CampoFoto({
       <input ref={entrada} type="file" accept="image/*" className="hidden" onChange={(e) => enviar(e.target.files?.[0])} />
 
       <div
+        role="button"
+        tabIndex={0}
+        aria-label={valor ? "Trocar foto" : "Enviar foto"}
+        onClick={() => !enviando && entrada.current?.click()}
+        onKeyDown={(e) => {
+          if ((e.key === "Enter" || e.key === " ") && !enviando) {
+            e.preventDefault();
+            entrada.current?.click();
+          }
+        }}
         onDragOver={(e) => {
           e.preventDefault();
           setArrastando(true);
@@ -127,7 +137,7 @@ export function CampoFoto({
           setArrastando(false);
           enviar(e.dataTransfer.files?.[0]);
         }}
-        className={clsx("flex items-center gap-3 rounded-xl border-[1.5px] border-dashed bg-card p-2.5", arrastando ? "border-acao bg-rosado" : "border-linha")}
+        className={clsx("flex cursor-pointer items-center gap-3 rounded-xl border-[1.5px] border-dashed bg-card p-2.5 transition-colors hover:border-acao hover:bg-rosado/40", arrastando ? "border-acao bg-rosado" : "border-linha", enviando && "cursor-wait")}
       >
         <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-rosado">
           {valor ? <Image src={valor} alt="" fill sizes="64px" className="object-cover" /> : <ImagePlus className="absolute inset-0 m-auto text-acao/60" size={24} />}
@@ -138,13 +148,14 @@ export function CampoFoto({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <button type="button" disabled={enviando} onClick={() => entrada.current?.click()} className="text-[13.5px] font-bold text-acao disabled:opacity-50">
-            {enviando ? "Enviando…" : valor ? "Trocar foto" : "Enviar foto"}
-          </button>
+          <span className={clsx("text-[13.5px] font-bold text-acao", enviando && "opacity-50")}>{enviando ? "Enviando…" : valor ? "Trocar foto" : "Enviar foto"}</span>
           <p className="text-[11.5px] text-mudo">Toque para escolher ou arraste a imagem aqui. A foto é reduzida automaticamente.</p>
         </div>
         {valor && !enviando && (
-          <button type="button" onClick={() => aoMudar(undefined)} className="rounded-full p-2 text-mudo hover:bg-rosado hover:text-st-cancelado" aria-label="Remover foto">
+          <button type="button" onClick={(e) => {
+              e.stopPropagation(); // não abre a escolha de arquivo
+              aoMudar(undefined);
+            }} className="rounded-full p-2 text-mudo hover:bg-rosado hover:text-st-cancelado" aria-label="Remover foto">
             <Trash2 size={16} />
           </button>
         )}

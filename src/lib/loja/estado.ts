@@ -108,7 +108,7 @@ export type Estado = {
   auditoria: Auditoria[];
 };
 
-export const VERSAO = 2;
+export const VERSAO = 3;
 
 /** Mesas numeradas de 1 a 40 (requisito MES-01). */
 export const TOTAL_MESAS = 40;
@@ -151,7 +151,7 @@ export function estadoInicial(): Estado {
   return {
     versao: VERSAO,
     config: {
-      nome: "Carlo's Bar & Restaurante",
+      nome: "Carlos Bar & Restaurante",
       servicoPct: 10,
       couvert: 0,
       totalComandas: 40,
@@ -180,7 +180,7 @@ export function estadoInicial(): Estado {
       },
       chatbot: {
         ativo: false,
-        saudacao: "Olá! Aqui é o atendimento do Carlo's Bar & Restaurante 🍖",
+        saudacao: "Olá! Aqui é o atendimento do Carlos Bar & Restaurante 🍖",
         horario: "Terça a domingo, das 11h às 23h",
         foraDoHorario: "Estamos fechados agora, mas você já pode ver o cardápio. Abrimos de terça a domingo, às 11h.",
         respostas: [
