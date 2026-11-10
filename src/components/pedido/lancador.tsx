@@ -2,7 +2,7 @@
 
 import clsx from "clsx";
 import Image from "next/image";
-import { MessageSquareText, Minus, Plus, Scale, Search, Send, Trash2, UtensilsCrossed } from "lucide-react";
+import { Minus, Plus, Scale, Search, Send, Trash2, UtensilsCrossed } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { brl } from "@/lib/dominio/calculos";
 import type { Produto } from "@/lib/dominio/tipos";
@@ -13,8 +13,8 @@ import { Botao, EntradaValor, JANELA_DOIS_CLIQUES, Modal, Selecao, useDoisClique
 
 type Linha = ItemNovo & { chave: string };
 
-/** Um clique adiciona o produto (Dom, 10/11/2026). Ligar aqui se voltar a pedir dois. */
-const DOIS_CLIQUES_PRODUTO = false;
+/** Adicionar produto pede dois cliques (Dom, 10/11/2026). */
+const DOIS_CLIQUES_PRODUTO = true;
 
 /**
  * Tela de lançamento de pedido, usada em mesas, comandas, balcão, PDV,
@@ -43,8 +43,7 @@ export function Lancador({
   const [cat, setCat] = useState<string | null>(categorias[0]?.id ?? null);
   const [busca, setBusca] = useState("");
   const [linhas, setLinhas] = useState<Linha[]>([]);
-  const [obsAberta, setObsAberta] = useState<string | null>(null);
-  const [atendente, setAtendente] = useState(usuarioId);
+    const [atendente, setAtendente] = useState(usuarioId);
 
   const visiveis = useMemo(() => {
     const q = busca
@@ -107,7 +106,7 @@ export function Lancador({
     setLinhas([]);
     aoEnviar?.(n);
   }
-  const botaoEnviar = useDoisCliques(enviar);
+  const botaoEnviar = useDoisCliques(enviar, true);
 
   async function lerBalanca() {
     setMsgBalanca("Lendo a balança…");
@@ -248,26 +247,23 @@ export function Lancador({
                   <button aria-label="Mais" onClick={() => setLinhas((ls) => ls.map((x) => (x === l && !p.porKg ? { ...x, qtd: x.qtd + 1 } : x)))} className="flex h-7 w-7 items-center justify-center rounded-full bg-acao text-white">
                     <Plus size={14} />
                   </button>
-                  <button onClick={() => setObsAberta(obsAberta === l.chave ? null : l.chave)} className={clsx("ml-auto flex h-7 items-center gap-1 rounded-full px-2 text-[11.5px] font-semibold", l.obs ? "bg-[#FDF0D6] text-[#8A5A00]" : "text-mudo")}>
-                    <MessageSquareText size={14} /> Obs.
-                  </button>
-                  <button aria-label="Remover" onClick={() => setLinhas((ls) => ls.filter((x) => x !== l))} className="flex h-7 w-7 items-center justify-center rounded-full text-mudo hover:text-st-cancelado">
+
+                  <button aria-label="Remover" onClick={() => setLinhas((ls) => ls.filter((x) => x !== l))} className="ml-auto flex h-7 w-7 items-center justify-center rounded-full text-mudo hover:text-st-cancelado">
                     <Trash2 size={14} />
                   </button>
                 </div>
-                {(obsAberta === l.chave || l.obs) && (
-                  <input
-                    autoFocus={obsAberta === l.chave}
+                {/* Observação sempre aberta ao adicionar o produto */}
+                <input
+                    aria-label={`Observação de ${p.nome}`}
                     value={l.obs ?? ""}
                     onChange={(e) => setLinhas((ls) => ls.map((x) => (x === l ? { ...x, obs: e.target.value } : x)))}
                     placeholder="Ex.: sem cebola, bem passada"
                     className="mt-1.5 w-full rounded-lg border border-linha bg-fundo px-2 py-1.5 text-[12.5px] outline-none focus:border-acao"
                   />
-                )}
               </li>
             );
           })}
-          {!linhas.length && <li className="py-6 text-center text-[12.5px] text-mudo">Toque nos produtos para adicionar.</li>}
+          {!linhas.length && <li className="py-6 text-center text-[12.5px] text-mudo">Dois cliques no produto para adicionar.</li>}
         </ul>
         <div className="mt-3 space-y-1 border-t border-linha pt-3 text-[13px]">
           <div className="flex justify-between">
