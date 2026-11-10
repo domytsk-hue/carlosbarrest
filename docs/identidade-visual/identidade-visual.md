@@ -1,4 +1,4 @@
-# Identidade Visual: Carlo's Bar & Restaurante
+# Identidade Visual: Carlos Bar & Restaurante
 
 > Extraída do app de cardápio já publicado (carlosbar.netlify.app) e do seu painel administrativo. Esta é a identidade oficial que o novo sistema vai usar. Todos os arquivos estão nesta pasta.
 

@@ -3,7 +3,7 @@
 /* Menu lateral recolhido (só ícones) no computador — escolha salva em localStorage("menu") */
 @custom-variant recolhido (:root[data-menu="recolhido"] &);
 
-/* Identidade visual Carlo's Bar & Restaurante — ver docs/identidade-visual/identidade-visual.md */
+/* Identidade visual Carlos Bar & Restaurante — ver docs/identidade-visual/identidade-visual.md */
 :root {
   /* Largura do menu lateral e do painel da direita (ex.: conta da mesa) */
   --largura-menu: 248px;

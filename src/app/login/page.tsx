@@ -31,7 +31,7 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-dvh items-center justify-center p-4">
       <div className="w-full max-w-[380px]">
-        <Image src="/logo.svg" alt="Carlo's Bar & Restaurante" width={210} height={140} priority className="logo-marca mx-auto mb-6 h-auto w-[210px] drop-shadow-[0_2px_4px_rgba(80,30,10,.15)]" />
+        <Image src="/logo.svg" alt="Carlos Bar & Restaurante" width={210} height={140} priority className="logo-marca mx-auto mb-6 h-auto w-[210px] drop-shadow-[0_2px_4px_rgba(80,30,10,.15)]" />
         <form onSubmit={entrar} className="rounded-[20px] bg-card p-6 shadow-card">
           <h1 className="font-slab text-[22px] font-extrabold uppercase tracking-tight text-marca">Painel do restaurante</h1>
           <p className="mt-1 mb-4 text-[13px] text-mudo">Entre com seu usuário para começar o turno.</p>
