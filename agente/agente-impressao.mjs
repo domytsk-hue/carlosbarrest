@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Agente local de impressão do Carlo's.
+// Agente local de impressão do Carlos.
 //
 // Roda no computador do caixa (Node 18+). O sistema, aberto no navegador, manda
 // o cupom já em ESC/POS e o NOME da impressora ("cozinha", "bar", "caixa"); o
@@ -91,4 +91,4 @@ createServer(async (req, res) => {
     console.error("erro:", e.message);
     json(502, { erro: e.message });
   }
-}).listen(PORTA, "127.0.0.1", () => console.log(`Agente de impressão Carlo's ${VERSAO} em http://localhost:${PORTA} · impressoras: ${Object.keys(IMPRESSORAS).join(", ")}`));
+}).listen(PORTA, "127.0.0.1", () => console.log(`Agente de impressão Carlos ${VERSAO} em http://localhost:${PORTA} · impressoras: ${Object.keys(IMPRESSORAS).join(", ")}`));

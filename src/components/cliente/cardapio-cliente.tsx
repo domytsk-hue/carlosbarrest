@@ -16,7 +16,7 @@ export function CabecalhoCliente({ titulo, sub, direita }: { titulo: React.React
   return (
     <header className="sticky top-0 z-30 border-b border-linha bg-fundo/95 px-4 py-3 backdrop-blur">
       <div className="mx-auto flex max-w-[720px] items-center gap-3">
-        <Image src="/logo.svg" alt="Carlo's Bar & Restaurante" width={84} height={56} priority className="logo-marca h-auto w-[84px]" />
+        <Image src="/logo.svg" alt="Carlos Bar & Restaurante" width={84} height={56} priority className="logo-marca h-auto w-[84px]" />
         <div className="min-w-0 flex-1">
           <p className="truncate font-slab text-[17px] font-extrabold text-marca">{titulo}</p>
           {sub && <p className="truncate text-[12px] text-mudo">{sub}</p>}

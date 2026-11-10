@@ -21,7 +21,7 @@ export function CascaCozinha({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-linha bg-card px-3 py-2 sm:px-5">
-        <Image src="/logo.svg" alt="Carlo's Bar & Restaurante" width={78} height={52} priority className="logo-marca h-auto w-[78px]" />
+        <Image src="/logo.svg" alt="Carlos Bar & Restaurante" width={78} height={52} priority className="logo-marca h-auto w-[78px]" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-bold">{sessao?.nome ?? "…"}</p>
           <p className="truncate text-[11.5px] text-mudo">{sessao?.restaurante}</p>

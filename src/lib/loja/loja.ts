@@ -34,9 +34,19 @@ function carregar(recebido?: string | null): Estado {
 /**
  * Ajusta dados gravados por versões anteriores:
  * v2 · mesas de 1 a 40 (sem duplicar número) e estoque desligado até março.
+ * v3 · nome "Carlo's" passa a ser "Carlos" (pedido do Dom, 10/11/2026).
  */
 function migrar(e: Estado, versaoSalva: number): Estado {
-  if (versaoSalva >= 2) return e;
+  if (versaoSalva < 2) e = migrarV2(e);
+  if (versaoSalva < 3) {
+    const trocar = (t?: string) => t?.replace(/Carlo['’]s/g, "Carlos") ?? t;
+    const chatbot = e.config.chatbot && { ...e.config.chatbot, saudacao: trocar(e.config.chatbot.saudacao) ?? e.config.chatbot.saudacao };
+    e = { ...e, config: { ...e.config, nome: trocar(e.config.nome) ?? e.config.nome, ...(chatbot && { chatbot }) } };
+  }
+  return e;
+}
+
+function migrarV2(e: Estado): Estado {
   const numeros = new Set(e.mesas.map((m) => m.numero));
   const faltam = Array.from({ length: TOTAL_MESAS }, (_, i) => i + 1)
     .filter((n) => !numeros.has(n))

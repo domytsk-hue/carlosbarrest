@@ -91,7 +91,7 @@ export function AppGarcom() {
           </button>
         ) : (
           <Link href="/" className="rounded-xl bg-[#F7EEE3] px-1.5 py-1" aria-label="Painel">
-            <Image src="/logo.svg" alt="Carlo's" width={54} height={36} className="h-auto w-[54px]" />
+            <Image src="/logo.svg" alt="Carlos" width={54} height={36} className="h-auto w-[54px]" />
           </Link>
         )}
         <div className="min-w-0 flex-1">

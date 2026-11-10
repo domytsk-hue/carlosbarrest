@@ -79,7 +79,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         <div className="flex items-center justify-between px-5 pt-5 pb-3 lg:recolhido:flex-col lg:recolhido:gap-2 lg:recolhido:px-2">
           <Link href="/" onClick={() => setMenuAberto(false)} aria-label="Início" className="lg:recolhido:hidden">
-            <Image src="/logo.svg" alt="Carlo's Bar & Restaurante" width={150} height={100} priority className="logo-marca h-auto w-[150px] drop-shadow-[0_2px_4px_rgba(80,30,10,.15)]" />
+            <Image src="/logo.svg" alt="Carlos Bar & Restaurante" width={150} height={100} priority className="logo-marca h-auto w-[150px] drop-shadow-[0_2px_4px_rgba(80,30,10,.15)]" />
           </Link>
           <button className="lg:hidden rounded-full p-2 text-mudo" onClick={() => setMenuAberto(false)} aria-label="Fechar menu">
             <X size={20} />

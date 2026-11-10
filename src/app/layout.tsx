@@ -10,8 +10,8 @@ import "@fontsource/roboto-slab/latin-800.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Carlo's · Gestão",
-  description: "Sistema de gestão do Carlo's Bar & Restaurante",
+  title: "Carlos · Gestão",
+  description: "Sistema de gestão do Carlos Bar & Restaurante",
   icons: { apple: "/apple-touch-icon.png" },
 };
 
