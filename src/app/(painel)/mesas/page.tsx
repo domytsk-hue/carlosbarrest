@@ -159,7 +159,7 @@ export default function MesasPage() {
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_480px]">
+      <div className="grid gap-4 lg:grid-cols-[1fr_var(--painel-direito)]">
         <div className="space-y-4">
           {grupos.map((g) => {
             const lista = visiveis.filter((m) => estadoDa(m) === g.estado);

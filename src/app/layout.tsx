@@ -19,8 +19,8 @@ export const viewport: Viewport = {
   themeColor: "#9E1B1E",
 };
 
-// Aplica o tema salvo antes da primeira pintura, para não piscar.
-const temaInicial = `try{var t=localStorage.getItem("tema");if(t)document.documentElement.dataset.theme=t}catch(e){}`;
+// Aplica o tema e o menu (aberto/recolhido) salvos antes da primeira pintura, para não piscar.
+const temaInicial = `try{var d=document.documentElement,t=localStorage.getItem("tema");if(t)d.dataset.theme=t;var m=localStorage.getItem("menu");if(m)d.dataset.menu=m}catch(e){}`;
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (

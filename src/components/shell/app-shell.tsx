@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
-import { Menu, X } from "lucide-react";
+import { Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { descreverAparelho, idDoAparelho } from "@/lib/dispositivo";
 import { registrarDispositivo } from "@/lib/loja/acoes";
@@ -23,6 +23,18 @@ function ativo(pathname: string, slug: string) {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [menuAberto, setMenuAberto] = useState(false);
+  // No computador o menu lateral pode ser recolhido (só ícones); a escolha fica salva neste aparelho
+  const [recolhido, setRecolhido] = useState(false);
+  useEffect(() => setRecolhido(document.documentElement.dataset.menu === "recolhido"), []);
+  const alternarMenu = () => {
+    const novo = !recolhido;
+    if (novo) document.documentElement.dataset.menu = "recolhido";
+    else delete document.documentElement.dataset.menu;
+    try {
+      localStorage.setItem("menu", novo ? "recolhido" : "aberto");
+    } catch {}
+    setRecolhido(novo);
+  };
   useAtalhos();
   // Anota este aparelho na lista de dispositivos (Configurações → Dispositivos)
   useEffect(() => {
@@ -45,23 +57,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const rapidos = MODULOS.filter((m) => m.rapido);
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[248px_1fr]">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[var(--largura-menu)_1fr] lg:transition-[grid-template-columns]">
       {/* Menu lateral */}
       <aside
         className={clsx(
-          "fixed inset-y-0 left-0 z-40 flex w-[248px] flex-col bg-card shadow-flutuante transition-transform lg:sticky lg:top-0 lg:h-dvh lg:translate-x-0 lg:shadow-none lg:border-r lg:border-linha",
+          "fixed inset-y-0 left-0 z-40 flex w-[248px] flex-col bg-card shadow-flutuante transition-transform lg:sticky lg:top-0 lg:h-dvh lg:w-auto lg:translate-x-0 lg:shadow-none lg:border-r lg:border-linha",
           menuAberto ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex items-center justify-between px-5 pt-5 pb-3">
-          <Link href="/" onClick={() => setMenuAberto(false)} aria-label="Início">
+        <div className="flex items-center justify-between px-5 pt-5 pb-3 lg:recolhido:flex-col lg:recolhido:gap-2 lg:recolhido:px-2">
+          <Link href="/" onClick={() => setMenuAberto(false)} aria-label="Início" className="lg:recolhido:hidden">
             <Image src="/logo.svg" alt="Carlo's Bar & Restaurante" width={150} height={100} priority className="logo-marca h-auto w-[150px] drop-shadow-[0_2px_4px_rgba(80,30,10,.15)]" />
           </Link>
           <button className="lg:hidden rounded-full p-2 text-mudo" onClick={() => setMenuAberto(false)} aria-label="Fechar menu">
             <X size={20} />
           </button>
+          <button
+            className="hidden rounded-full p-2 text-mudo hover:bg-secundario/60 hover:text-tinta lg:block"
+            onClick={alternarMenu}
+            title={recolhido ? "Expandir menu" : "Recolher menu"}
+            aria-label={recolhido ? "Expandir menu" : "Recolher menu"}
+          >
+            {recolhido ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
+          </button>
         </div>
-        <nav className="flex-1 overflow-y-auto px-3 pb-4">
+        <nav className="flex-1 overflow-y-auto px-3 pb-4 lg:recolhido:px-2">
           {MODULOS.map((m) => {
             const Icone = m.icone;
             const on = ativo(pathname, m.slug);
@@ -70,22 +90,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 key={m.slug}
                 href={"/" + m.slug}
                 onClick={() => setMenuAberto(false)}
-                title={m.desabilitado}
+                title={m.desabilitado ?? (recolhido ? (m.atalho ? `${m.rotulo} (${m.atalho})` : m.rotulo) : undefined)}
+                aria-label={m.rotulo}
                 className={clsx(
-                  "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13.5px] font-medium transition-colors",
+                  "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13.5px] font-medium transition-colors lg:recolhido:justify-center",
                   on ? "bg-rosado text-acao font-semibold" : "text-tinta hover:bg-secundario/60",
                   m.desabilitado && !on && "opacity-50",
                 )}
               >
                 <Icone size={19} strokeWidth={on ? 2.3 : 1.8} />
-                <span className="flex-1">{m.rotulo}</span>
-                {m.desabilitado && <span className="rounded-full bg-secundario px-2 py-0.5 text-[10px] font-semibold text-mudo">desligado</span>}
-                {m.atalho && <kbd className="text-[10.5px] font-medium text-mudo">{m.atalho}</kbd>}
+                <span className="flex-1 lg:recolhido:hidden">{m.rotulo}</span>
+                {m.desabilitado && <span className="lg:recolhido:hidden rounded-full bg-secundario px-2 py-0.5 text-[10px] font-semibold text-mudo">desligado</span>}
+                {m.atalho && <kbd className="lg:recolhido:hidden text-[10.5px] font-medium text-mudo">{m.atalho}</kbd>}
               </Link>
             );
           })}
         </nav>
-        <div className="border-t border-linha px-5 py-3">
+        <div className="border-t border-linha px-5 py-3 lg:recolhido:px-2 lg:recolhido:[&_button]:justify-center lg:recolhido:[&_span]:hidden">
           <ThemeToggle />
         </div>
       </aside>

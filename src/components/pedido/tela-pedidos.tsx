@@ -35,7 +35,7 @@ export function TelaPedidos({ titulo, sub, filtro, tipoInicial }: { titulo: stri
       >
         {titulo}
       </Titulo>
-      <div className="grid gap-4 lg:grid-cols-[1fr_480px]">
+      <div className="grid gap-4 lg:grid-cols-[1fr_var(--painel-direito)]">
         <div className="grid content-start gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
           {contas.map((c) => (
             <button key={c.id} onClick={() => setSel(c.id)} className={clsx("rounded-[18px] border-l-[5px] border-l-acao bg-card p-3.5 text-left shadow-card", c.id === sel && "ring-2 ring-acao")}>

@@ -69,7 +69,7 @@ export default function ComandasPage() {
   return (
     <div className="mx-auto max-w-[1400px]">
       <Titulo sub={<>{abertas.length} abertas · {livres.length} livres · F11</>}>Comandas</Titulo>
-      <div className="grid gap-4 lg:grid-cols-[1fr_480px]">
+      <div className="grid gap-4 lg:grid-cols-[1fr_var(--painel-direito)]">
         <div className="space-y-4">
           <form onSubmit={buscar} className="flex items-center gap-2 rounded-2xl bg-card px-4 py-3 shadow-card">
             <Search size={18} className="text-mudo" />

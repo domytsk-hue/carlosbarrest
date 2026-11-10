@@ -1,7 +1,13 @@
 @import "tailwindcss";
 
+/* Menu lateral recolhido (só ícones) no computador — escolha salva em localStorage("menu") */
+@custom-variant recolhido (:root[data-menu="recolhido"] &);
+
 /* Identidade visual Carlo's Bar & Restaurante — ver docs/identidade-visual/identidade-visual.md */
 :root {
+  /* Largura do menu lateral e do painel da direita (ex.: conta da mesa) */
+  --largura-menu: 248px;
+  --painel-direito: 480px;
   --marca: #9e1b1e;
   --acao: #b8322a;
   --acao-forte: #9e1b1e;
@@ -26,6 +32,11 @@
   --st-pronto: #2e9e55;
   --st-entregue: #b9aaa0;
   --st-cancelado: #c0392b;
+}
+
+:root[data-menu="recolhido"] {
+  --largura-menu: 76px;
+  --painel-direito: min(640px, 48vw);
 }
 
 :root[data-theme="dark"] {
