@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
 import { Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -15,6 +15,9 @@ import { SupportButton } from "./support-button";
 import { ThemeToggle } from "./theme-toggle";
 import { AreaImpressao } from "../impressao";
 import { AberturaCaixa } from "./abertura-caixa";
+import { AvisoProntos } from "./aviso-prontos";
+import { CascaCozinha } from "./casca-cozinha";
+import { usePapel } from "./use-papel";
 
 function ativo(pathname: string, slug: string) {
   return slug === "" ? pathname === "/" : pathname === "/" + slug || pathname.startsWith("/" + slug + "/");
@@ -22,6 +25,13 @@ function ativo(pathname: string, slug: string) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  // Quem entra com a função "cozinha" só vê o painel da cozinha
+  const papel = usePapel();
+  const soCozinha = papel === "cozinha";
+  useEffect(() => {
+    if (soCozinha && pathname !== "/cozinha") router.replace("/cozinha");
+  }, [soCozinha, pathname, router]);
   const [menuAberto, setMenuAberto] = useState(false);
   // No computador o menu lateral pode ser recolhido (só ícones); a escolha fica salva neste aparelho
   const [recolhido, setRecolhido] = useState(false);
@@ -35,7 +45,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     } catch {}
     setRecolhido(novo);
   };
-  useAtalhos();
+  useAtalhos(!soCozinha);
   // Anota este aparelho na lista de dispositivos (Configurações → Dispositivos)
   useEffect(() => {
     const id = idDoAparelho();
@@ -55,6 +65,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [menuAberto]);
 
   const rapidos = MODULOS.filter((m) => m.rapido);
+
+  if (soCozinha) return <CascaCozinha>{pathname === "/cozinha" ? children : null}</CascaCozinha>;
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[var(--largura-menu)_1fr] lg:transition-[grid-template-columns]">
@@ -148,6 +160,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <AberturaCaixa />
+      <AvisoProntos />
       <SupportButton />
       <AreaImpressao />
     </div>

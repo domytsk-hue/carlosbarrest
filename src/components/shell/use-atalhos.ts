@@ -11,9 +11,10 @@ function nomeDaTecla(e: KeyboardEvent) {
 }
 
 /** Atalhos de teclado globais para quem opera o caixa no computador. */
-export function useAtalhos() {
+export function useAtalhos(ligados = true) {
   const router = useRouter();
   useEffect(() => {
+    if (!ligados) return;
     const aoTeclar = (e: KeyboardEvent) => {
       const destino = ATALHOS[nomeDaTecla(e)];
       if (!destino) return;
@@ -22,5 +23,5 @@ export function useAtalhos() {
     };
     window.addEventListener("keydown", aoTeclar);
     return () => window.removeEventListener("keydown", aoTeclar);
-  }, [router]);
+  }, [router, ligados]);
 }

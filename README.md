@@ -38,6 +38,22 @@ Sem as variáveis do Supabase, o app roda em **modo demonstração**: sem login 
 3. Rode `supabase/migrations/20261109060000_seguranca.sql` por último (já incluído no `db push`): tira da API as funções internas.
 4. Crie um usuário em Authentication, entre no app e chame `select criar_restaurante('Carlo''s Bar & Restaurante', 'Seu nome');` logado como ele (ou insira o vínculo em `membros`).
 
+### Tablet da cozinha
+
+Com o Supabase ligado, as contas, os pedidos e os status de preparo passam por `loja_registros` (migração `20261110100000_sincronizacao_cozinha.sql`) e chegam aos outros aparelhos pelo Realtime: o garçom lança no celular, o tablet da cozinha recebe na hora e o salão é avisado quando o pedido fica pronto.
+
+Login só da cozinha: crie o usuário em Authentication → Users e vincule com a função `cozinha`:
+
+```sql
+insert into membros (restaurante_id, user_id, funcao, nome_exibicao)
+select r.id, u.id, 'cozinha', 'Cozinha'
+from restaurantes r, auth.users u
+where r.nome = 'Carlo''s Bar & Restaurante' and u.email = 'cozinha@seudominio.com'
+on conflict (restaurante_id, user_id) do update set funcao = 'cozinha', ativo = true;
+```
+
+Quem entra com essa função vê só o painel da cozinha: sem menu, sem atalhos e sem acesso às outras telas.
+
 ## Estrutura
 
 ```

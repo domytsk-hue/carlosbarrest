@@ -8,6 +8,8 @@ export { ROTULO_FUNCAO, type Funcao };
 export type Sessao = {
   nome: string;
   funcao: string;
+  /** Código da função ("cozinha", "garcom"...); null no modo demonstração ou sem vínculo */
+  papel: Funcao | null;
   restaurante: string;
   restauranteId: string | null;
   caixa: string | null;
@@ -17,6 +19,7 @@ export type Sessao = {
 const SESSAO_DEMO: Sessao = {
   nome: "Admin",
   funcao: "Dono",
+  papel: null,
   restaurante: "Carlo's Bar & Restaurante",
   restauranteId: null,
   caixa: "Caixa 1",
@@ -24,6 +27,17 @@ const SESSAO_DEMO: Sessao = {
 };
 
 const CHAVE = "carlos:sessao";
+/** Função do último login neste aparelho: o tablet da cozinha já abre travado na cozinha. */
+const CHAVE_PAPEL = "carlos:papel";
+
+/** Lembra a função do último login deste aparelho (sem esperar o banco). */
+export function papelLembrado(): Funcao | null {
+  try {
+    return (localStorage.getItem(CHAVE_PAPEL) as Funcao) || null;
+  } catch {
+    return null;
+  }
+}
 
 // A sessão é carregada uma vez por aba e guardada aqui. Antes, cada clique no
 // menu ia ao servidor conferir o login e buscar o restaurante de novo; agora
@@ -47,7 +61,7 @@ async function buscar(): Promise<Sessao | null> {
     const salvo = sessionStorage.getItem(CHAVE);
     if (salvo) {
       const s = JSON.parse(salvo) as Sessao & { userId: string };
-      if (s.userId === user.id) return s;
+      if (s.userId === user.id && "papel" in s) return s;
     }
   } catch {}
 
@@ -63,6 +77,7 @@ async function buscar(): Promise<Sessao | null> {
   const s: Sessao = {
     nome: vinculo?.nome_exibicao ?? user.email ?? "Usuário",
     funcao: vinculo ? ROTULO_FUNCAO[vinculo.funcao as Funcao] : "Sem restaurante",
+    papel: (vinculo?.funcao as Funcao | undefined) ?? null,
     restaurante: restaurante?.nome ?? "Nenhum restaurante vinculado",
     restauranteId: restaurante?.id ?? null,
     caixa: null, // Fase 1: controle de caixa
@@ -70,6 +85,7 @@ async function buscar(): Promise<Sessao | null> {
   };
   try {
     sessionStorage.setItem(CHAVE, JSON.stringify({ ...s, userId: user.id }));
+    localStorage.setItem(CHAVE_PAPEL, s.papel ?? "");
   } catch {}
   return s;
 }
@@ -101,5 +117,16 @@ export function limparSessao() {
   atual = supabaseConfigurado ? null : SESSAO_DEMO;
   try {
     sessionStorage.removeItem(CHAVE);
+    localStorage.removeItem(CHAVE_PAPEL);
   } catch {}
+}
+
+/** Sai do sistema neste aparelho e volta para a tela de entrada. */
+export async function sair() {
+  if (supabaseConfigurado) {
+    const { criarClienteNavegador } = await import("./supabase/client");
+    await criarClienteNavegador().auth.signOut();
+  }
+  limparSessao();
+  window.location.assign("/login");
 }
