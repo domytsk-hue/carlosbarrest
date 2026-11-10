@@ -3,9 +3,9 @@ import type { MetadataRoute } from "next";
 /** Permite instalar o sistema como aplicativo (tela cheia, ícone na tela inicial). */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Carlo's · Gestão",
-    short_name: "Carlo's",
-    description: "Sistema de gestão do Carlo's Bar & Restaurante",
+    name: "Carlos · Gestão",
+    short_name: "Carlos",
+    description: "Sistema de gestão do Carlos Bar & Restaurante",
     start_url: "/",
     scope: "/",
     display: "standalone",

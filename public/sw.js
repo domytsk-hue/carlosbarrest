@@ -45,7 +45,7 @@ function comPrazo(promessa, ms) {
   });
 }
 
-const TELA_OFFLINE = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sem internet · Carlo's</title>
+const TELA_OFFLINE = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sem internet · Carlos</title>
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#F7EEE3;color:#2B1A14;font:16px/1.5 Poppins,system-ui,sans-serif;padding:24px;box-sizing:border-box}
 main{max-width:420px;text-align:center}h1{color:#9E1B1E;font-size:22px;margin:0 0 8px}a{display:inline-block;margin-top:16px;background:#B8322A;color:#fff;padding:12px 22px;border-radius:999px;text-decoration:none;font-weight:600}</style></head>
 <body><main><h1>Sem internet</h1><p>Esta tela ainda não tinha sido aberta neste aparelho, então não há cópia guardada. As telas já usadas continuam funcionando.</p><a href="/">Voltar ao início</a></main></body></html>`;
