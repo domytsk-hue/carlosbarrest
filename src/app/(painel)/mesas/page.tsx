@@ -155,7 +155,7 @@ export default function MesasPage() {
               type="button"
               onClick={botaoAbrir.clicar}
               onBlur={botaoAbrir.desarmar}
-              title="Abrir a mesa · dois cliques ou Enter"
+              title="Abrir a mesa (ou Enter)"
               className={clsx("touch-manipulation rounded-full px-3 py-1.5 text-[12px] font-bold", botaoAbrir.armado ? "bg-rosado text-acao ring-2 ring-acao" : "bg-acao text-white")}
             >
               {botaoAbrir.armado ? "De novo" : "Abrir"}
@@ -288,7 +288,7 @@ export default function MesasPage() {
               <div className="rounded-2xl border border-linha bg-card px-4 py-4 text-center text-[13px] text-mudo lg:py-8">
                 Nenhum item lançado ainda.
                 <br />
-                Dois cliques na mesa, <b className="text-tinta">Enter</b> ou dois toques em <b className="text-tinta">Abrir mesa</b> para lançar o pedido.
+                Toque em <b className="text-tinta">Abrir mesa</b> ou aperte <b className="text-tinta">Enter</b> para lançar o pedido.
               </div>
             </div>
           ) : (
