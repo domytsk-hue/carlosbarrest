@@ -33,11 +33,11 @@ export function Botao({ variante = "primario", tamanho = "md", className, ...pro
 export const JANELA_DOIS_CLIQUES = 2500;
 
 /**
- * Ações importantes pedem dois cliques: o primeiro só "arma" o botão (ele muda de cor e
- * pede o segundo); o segundo, dentro de 2,5 s, executa. Funciona com duplo clique no
- * computador e com dois toques no celular, onde o duplo toque nativo dá zoom ou falha.
+ * Confirmação por dois cliques, desligada por padrão (Dom pediu um clique em tudo e vai
+ * dizer o que precisa de dois). Com `ligado`, o primeiro clique só "arma" o botão e o
+ * segundo, dentro de 2,5 s, executa; no celular são dois toques separados.
  */
-export function useDoisCliques(acao?: () => void, ms = JANELA_DOIS_CLIQUES) {
+export function useDoisCliques(acao?: () => void, ligado = false, ms = JANELA_DOIS_CLIQUES) {
   const [armado, setArmado] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -46,6 +46,7 @@ export function useDoisCliques(acao?: () => void, ms = JANELA_DOIS_CLIQUES) {
     setArmado(false);
   };
   const clicar = () => {
+    if (!ligado) return acao?.();
     if (armado) {
       desarmar();
       acao?.();
@@ -60,17 +61,17 @@ export function useDoisCliques(acao?: () => void, ms = JANELA_DOIS_CLIQUES) {
 
 /**
  * Botão de ação do painel lateral (ícone grande + rótulo), padrão das telas de operação.
- * Por padrão pede dois cliques (ver useDoisCliques); `umClique` desliga isso.
+ * Um clique executa; `doisCliques` liga a confirmação (ver useDoisCliques).
  */
-export function Acao({ icone: Icone, rotulo, onClick, disabled, destaque, umClique }: { icone: React.ElementType; rotulo: string; onClick?: () => void; disabled?: boolean; destaque?: boolean; umClique?: boolean }) {
-  const { armado, clicar, desarmar } = useDoisCliques(onClick);
-  const pedeSegundo = armado && !umClique && !disabled;
+export function Acao({ icone: Icone, rotulo, onClick, disabled, destaque, doisCliques }: { icone: React.ElementType; rotulo: string; onClick?: () => void; disabled?: boolean; destaque?: boolean; doisCliques?: boolean }) {
+  const { armado, clicar, desarmar } = useDoisCliques(onClick, doisCliques);
+  const pedeSegundo = armado && !disabled;
   return (
     <button
-      onClick={umClique ? onClick : clicar}
+      onClick={clicar}
       onBlur={desarmar}
       disabled={disabled}
-      title={umClique ? rotulo : `${rotulo} · dois cliques`}
+      title={doisCliques ? `${rotulo} · dois cliques` : rotulo}
       aria-label={pedeSegundo ? `${rotulo}: clique de novo para confirmar` : rotulo}
       className={clsx(
         "flex min-h-[64px] touch-manipulation select-none flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[11.5px] font-semibold transition-colors disabled:opacity-35",

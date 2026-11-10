@@ -13,6 +13,9 @@ import { Botao, EntradaValor, JANELA_DOIS_CLIQUES, Modal, Selecao, useDoisClique
 
 type Linha = ItemNovo & { chave: string };
 
+/** Um clique adiciona o produto (Dom, 10/11/2026). Ligar aqui se voltar a pedir dois. */
+const DOIS_CLIQUES_PRODUTO = false;
+
 /**
  * Tela de lançamento de pedido, usada em mesas, comandas, balcão, PDV,
  * entregas e no app do garçom: categorias, busca, quantidade, observação,
@@ -66,11 +69,12 @@ export function Lancador({
   const [peso, setPeso] = useState(0);
   const [msgBalanca, setMsgBalanca] = useState("");
 
-  // Lançar produto pede dois cliques: o primeiro marca o produto, o segundo (até 2,5 s) adiciona.
+  // Com DOIS_CLIQUES_PRODUTO ligado, o primeiro clique marca o produto e o segundo (até 2,5 s) adiciona.
   const [armado, setArmado] = useState<string | null>(null);
   const timerArmado = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timerArmado.current), []);
   function tocarProduto(p: Produto) {
+    if (!DOIS_CLIQUES_PRODUTO) return adicionar(p);
     clearTimeout(timerArmado.current);
     if (armado === p.id) {
       setArmado(null);
@@ -192,7 +196,7 @@ export function Lancador({
               <button
                 key={p.id}
                 onClick={() => tocarProduto(p)}
-                title={`${p.nome} · dois cliques para adicionar`}
+                title={DOIS_CLIQUES_PRODUTO ? `${p.nome} · dois cliques para adicionar` : p.nome}
                 aria-label={marcado ? `${p.nome}: clique de novo para adicionar` : p.nome}
                 className={clsx(
                   "relative flex touch-manipulation select-none flex-col rounded-[18px] p-1.5 pb-2.5 text-left shadow-card transition-transform active:scale-[.98]",
@@ -263,7 +267,7 @@ export function Lancador({
               </li>
             );
           })}
-          {!linhas.length && <li className="py-6 text-center text-[12.5px] text-mudo">Dois cliques (ou dois toques) no produto para adicionar.</li>}
+          {!linhas.length && <li className="py-6 text-center text-[12.5px] text-mudo">Toque nos produtos para adicionar.</li>}
         </ul>
         <div className="mt-3 space-y-1 border-t border-linha pt-3 text-[13px]">
           <div className="flex justify-between">
@@ -296,7 +300,6 @@ export function Lancador({
           disabled={!linhas.length}
           onClick={botaoEnviar.clicar}
           onBlur={botaoEnviar.desarmar}
-          title="Dois cliques para enviar"
         >
           <Send size={18} />{" "}
           {botaoEnviar.armado ? (
