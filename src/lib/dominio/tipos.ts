@@ -89,6 +89,10 @@ export type Item = {
   pedidoNumero: number;
   enviadoEm: string;
   preparo: StatusPreparo;
+  /** Quando a cozinha começou a produzir */
+  preparoEm?: string;
+  /** Quando a cozinha marcou como pronto */
+  prontoEm?: string;
   cancelado?: { em: string; motivo: string; por?: Id };
 };
 

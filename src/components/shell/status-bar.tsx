@@ -5,9 +5,10 @@ import { CircleUserRound, Wallet, Wifi, WifiOff } from "lucide-react";
 import { useSessao, type Sessao } from "@/lib/sessao";
 import { useLoja } from "@/lib/loja/loja";
 import { ROTULO_FUNCAO } from "@/lib/sessao-rotulos";
+import { StatusSincronizacao } from "./casca-cozinha";
 
 /** Barra de status: conexão, usuário logado e caixa ativo, sempre visíveis. */
-const CARREGANDO: Sessao = { nome: "…", funcao: "…", restaurante: "", restauranteId: null, caixa: null, demo: false };
+const CARREGANDO: Sessao = { nome: "…", funcao: "…", papel: null, restaurante: "", restauranteId: null, caixa: null, demo: false };
 
 export function StatusBar() {
   const sessao = useSessao() ?? CARREGANDO;
@@ -35,6 +36,7 @@ export function StatusBar() {
         {online ? <Wifi size={14} /> : <WifiOff size={14} />}
         {online ? "Online" : "Sem conexão"}
       </span>
+      <StatusSincronizacao rotuloOk="Sincronizado" />
       <span className="flex items-center gap-1.5">
         <CircleUserRound size={14} />
         {nome}

@@ -391,7 +391,16 @@ const CANAIS_ENTREGA: Canal[] = ["entrega", "delivery", "ifood", "aiqfome"];
 /** Avança o preparo (KDS). Em pedidos de entrega, o status do pedido acompanha a cozinha. */
 export function mudarPreparo(contaId: string, itemIds: string[], status: StatusPreparo) {
   mudarConta(contaId, (c) => {
-    const itens = c.itens.map((i) => (itemIds.includes(i.id) ? { ...i, preparo: status } : i));
+    const em = agora();
+    const itens = c.itens.map((i) => {
+      if (!itemIds.includes(i.id)) return i;
+      const novo = { ...i, preparo: status };
+      if (status === "preparo") novo.preparoEm = i.preparoEm ?? em;
+      if (status === "pronto") novo.prontoEm = em;
+      if (status === "pendente") delete novo.preparoEm;
+      if (status === "pendente" || status === "preparo") delete novo.prontoEm;
+      return novo;
+    });
     let statusEntrega = c.statusEntrega;
     if (CANAIS_ENTREGA.includes(c.canal) && statusEntrega && ["novo", "confirmado", "preparo"].includes(statusEntrega)) {
       const validos = itens.filter((i) => !i.cancelado);

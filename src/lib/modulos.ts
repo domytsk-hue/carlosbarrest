@@ -46,7 +46,7 @@ export const MODULOS: Modulo[] = [
   { slug: "balcao", rotulo: "Balcão", descricao: "Venda para retirada ou entrega com cliente identificado", icone: UtensilsCrossed, atalho: "F4", fase: 1, rapido: true },
   { slug: "retiradas", rotulo: "Retiradas", descricao: "Pedidos para o cliente buscar no balcão: preparo, pronto e retirado", icone: PackageCheck, fase: 1, rapido: true },
   { slug: "entregas", rotulo: "Entregas", descricao: "Pedidos para entrega, entregadores e tempo de espera", icone: Truck, atalho: "F8", fase: 1, rapido: true },
-  { slug: "cozinha", rotulo: "Cozinha", descricao: "Monitor de preparo da cozinha e do bar (KDS)", icone: CookingPot, fase: 2, rapido: true },
+  { slug: "cozinha", rotulo: "Cozinha", descricao: "Painel da cozinha e do bar para tablet: novos, em produção e prontos", icone: CookingPot, fase: 2, rapido: true },
   { slug: "garcom", rotulo: "App do garçom", descricao: "Mesas, lançamento e chamados no celular do garçom", icone: HandPlatter, fase: 2 },
   { slug: "caixa", rotulo: "Caixa", descricao: "Abertura, sangria, suprimento, despesas e fechamento", icone: Wallet, fase: 1 },
   { slug: "contas", rotulo: "Contas", descricao: "Fiado dos clientes, contas a pagar e a receber", icone: ListChecks, fase: 3, rapido: true },

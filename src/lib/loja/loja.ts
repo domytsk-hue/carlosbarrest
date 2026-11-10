@@ -132,10 +132,20 @@ function mesclarLista(b: ComId[], l: ComId[], r: ComId[]): ComId[] {
     // Apagado aqui e não mexido lá: continua apagado
     else if (!antes || json(antes) !== json(x)) res.push(x);
   }
-  return [...novos, ...res];
+  // Os criados aqui entram na mesma posição em que estão nesta aba (logo
+  // depois do registro que vem antes deles), para não mudar a ordem da lista
+  for (const x of novos) {
+    const i = l.indexOf(x);
+    const anterior = i > 0 ? l[i - 1].id : null;
+    const pos = anterior === null ? -1 : res.findIndex((y) => y.id === anterior);
+    if (anterior === null) res.unshift(x);
+    else if (pos >= 0) res.splice(pos + 1, 0, x);
+    else res.push(x);
+  }
+  return res;
 }
 
-function mesclar(b: unknown, l: unknown, r: unknown): unknown {
+export function mesclar(b: unknown, l: unknown, r: unknown): unknown {
   const jl = json(l);
   const jr = json(r);
   if (jl === jr) return r;
@@ -225,3 +235,6 @@ export function reiniciarDemonstracao() {
 }
 
 export const novoId = (prefixo = "") => prefixo + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+
+/** Avisa quando o estado muda (nesta aba, em outra aba ou vindo da nuvem). */
+export const observarLoja = (o: Ouvinte) => inscrever(o);

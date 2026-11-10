@@ -4,7 +4,10 @@ import clsx from "clsx";
 import { ArrowLeft, Armchair, BellRing, CheckCheck, HandPlatter, LayoutGrid, Plus, Printer, Receipt, Wallet, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { usePapel } from "@/components/shell/use-papel";
+import { tocar } from "@/lib/som";
 import { imprimir } from "@/components/impressao";
 import { Lancador } from "@/components/pedido/lancador";
 import { PagamentoModal } from "@/components/pedido/pagamento";
@@ -49,6 +52,19 @@ export function AppGarcom() {
     }
     return [...m.values()];
   }, [abertas]);
+  // Cozinha pronta: toca e vibra no celular do garçom quando aparece pedido pronto novo
+  const vistosProntos = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    const chaves = prontos.map((p) => `${p.conta.id}:${p.pedido}`);
+    if (vistosProntos.current && chaves.some((k) => !vistosProntos.current!.has(k))) tocar("pronto");
+    vistosProntos.current = new Set(chaves);
+  }, [prontos]);
+  // Quem tem a função "cozinha" só usa o painel da cozinha
+  const papel = usePapel();
+  const router = useRouter();
+  useEffect(() => {
+    if (papel === "cozinha") router.replace("/cozinha");
+  }, [papel, router]);
   const garcons = funcionarios.filter((f) => f.ativo && ["garcom", "dono", "gerente"].includes(f.funcao));
 
   const mostrar = (t: string) => {
