@@ -2,7 +2,7 @@
 
 import clsx from "clsx";
 import { X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type BotaoProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variante?: "primario" | "secundario" | "ok" | "perigo" | "fantasma";
@@ -29,19 +29,69 @@ export function Botao({ variante = "primario", tamanho = "md", className, ...pro
   );
 }
 
-/** Botão de ação do painel lateral (ícone grande + rótulo), padrão das telas de operação. */
-export function Acao({ icone: Icone, rotulo, onClick, disabled, destaque }: { icone: React.ElementType; rotulo: string; onClick?: () => void; disabled?: boolean; destaque?: boolean }) {
+/** Janela para o segundo clique/toque confirmar uma ação importante. */
+export const JANELA_DOIS_CLIQUES = 2500;
+
+/**
+ * Ações importantes pedem dois cliques: o primeiro só "arma" o botão (ele muda de cor e
+ * pede o segundo); o segundo, dentro de 2,5 s, executa. Funciona com duplo clique no
+ * computador e com dois toques no celular, onde o duplo toque nativo dá zoom ou falha.
+ */
+export function useDoisCliques(acao?: () => void, ms = JANELA_DOIS_CLIQUES) {
+  const [armado, setArmado] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const desarmar = () => {
+    clearTimeout(timer.current);
+    setArmado(false);
+  };
+  const clicar = () => {
+    if (armado) {
+      desarmar();
+      acao?.();
+      return;
+    }
+    setArmado(true);
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setArmado(false), ms);
+  };
+  return { armado, clicar, desarmar };
+}
+
+/**
+ * Botão de ação do painel lateral (ícone grande + rótulo), padrão das telas de operação.
+ * Por padrão pede dois cliques (ver useDoisCliques); `umClique` desliga isso.
+ */
+export function Acao({ icone: Icone, rotulo, onClick, disabled, destaque, umClique }: { icone: React.ElementType; rotulo: string; onClick?: () => void; disabled?: boolean; destaque?: boolean; umClique?: boolean }) {
+  const { armado, clicar, desarmar } = useDoisCliques(onClick);
+  const pedeSegundo = armado && !umClique && !disabled;
   return (
     <button
-      onClick={onClick}
+      onClick={umClique ? onClick : clicar}
+      onBlur={desarmar}
       disabled={disabled}
+      title={umClique ? rotulo : `${rotulo} · dois cliques`}
+      aria-label={pedeSegundo ? `${rotulo}: clique de novo para confirmar` : rotulo}
       className={clsx(
-        "flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[11.5px] font-semibold transition-colors disabled:opacity-35",
-        destaque ? "bg-acao text-white shadow-botao" : "bg-card text-tinta shadow-card hover:bg-rosado hover:text-acao",
+        "flex min-h-[64px] touch-manipulation select-none flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[11.5px] font-semibold transition-colors disabled:opacity-35",
+        pedeSegundo
+          ? "bg-rosado text-acao ring-2 ring-acao"
+          : destaque
+            ? "bg-acao text-white shadow-botao"
+            : "bg-card text-tinta shadow-card hover:bg-rosado hover:text-acao",
       )}
     >
       <Icone size={20} />
-      <span className="leading-tight">{rotulo}</span>
+      <span className="leading-tight">
+        {pedeSegundo ? (
+          <>
+            <span className="lg:hidden">Toque de novo</span>
+            <span className="hidden lg:inline">Clique de novo</span>
+          </>
+        ) : (
+          rotulo
+        )}
+      </span>
     </button>
   );
 }

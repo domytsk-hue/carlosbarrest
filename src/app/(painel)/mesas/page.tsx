@@ -1,11 +1,11 @@
 "use client";
 
 import clsx from "clsx";
-import { Armchair, MapPin, Search } from "lucide-react";
+import { Armchair, MapPin, Plus, Search, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Lancador } from "@/components/pedido/lancador";
 import { PainelConta } from "@/components/pedido/painel-conta";
-import { Botao, Modal, Titulo, useRelogio, Vazio } from "@/components/ui";
+import { Acao, Botao, JANELA_DOIS_CLIQUES, Modal, Pilula, Titulo, useDoisCliques, useRelogio, Vazio } from "@/components/ui";
 import { brl, duracao, total } from "@/lib/dominio/calculos";
 import { rotuloMesa } from "@/lib/dominio/rotulos";
 import { LOCALIZACOES, type Conta, type Mesa } from "@/lib/dominio/tipos";
@@ -19,24 +19,14 @@ export default function MesasPage() {
   const contas = useLoja((e) => e.contas.filter((c) => c.mesaId && (c.status === "aberta" || c.status === "fechamento")));
   const agora = useRelogio();
   const [selecionada, setSelecionada] = useState<string | null>(null);
-  const [lancando, setLancando] = useState<{ contaId: string; numero: number } | null>(null);
+  const [lancando, setLancando] = useState<{ contaId: string; numero: number; totalAtual: number } | null>(null);
   const [area, setArea] = useState("Todas");
   const [numero, setNumero] = useState("");
   const [aviso, setAviso] = useState("");
   const [organizando, setOrganizando] = useState(false);
   const campoNumero = useRef<HTMLInputElement>(null);
 
-  // Digitar um número em qualquer lugar da tela leva para a busca da mesa
-  useEffect(() => {
-    const aoTeclar = (ev: KeyboardEvent) => {
-      if (!/^[0-9]$/.test(ev.key) || ev.ctrlKey || ev.metaKey || ev.altKey) return;
-      const alvo = ev.target as HTMLElement;
-      if (alvo.closest("input, textarea, select, [role=dialog]")) return;
-      campoNumero.current?.focus();
-    };
-    window.addEventListener("keydown", aoTeclar);
-    return () => window.removeEventListener("keydown", aoTeclar);
-  }, []);
+  const ultimoClique = useRef<{ id: string; em: number } | null>(null);
 
   const contaPorMesa = new Map<string, Conta>(contas.map((c) => [c.mesaId!, c]));
   const estadoDa = (m: Mesa): Estado => {
@@ -52,18 +42,48 @@ export default function MesasPage() {
   ];
   const contaSel = selecionada ? contaPorMesa.get(selecionada) : undefined;
 
-  function tocar(m: Mesa) {
-    const c = contaPorMesa.get(m.id);
-    if (c) return setSelecionada(m.id);
-    const id = abrirConta({ canal: "mesa", mesaId: m.id });
+  const mesaSel = selecionada ? mesas.find((m) => m.id === selecionada) : undefined;
+
+  /** Seleciona a mesa e mostra o painel lateral, sem abrir nada. */
+  function selecionar(m: Mesa) {
     setSelecionada(m.id);
-    setLancando({ contaId: id, numero: m.numero });
+    if (area !== "Todas" && m.area !== area) setArea("Todas");
+    requestAnimationFrame(() => document.getElementById(`mesa-${m.id}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
   }
+
+  /** Abre a mesa: livre abre a conta; ocupada vai direto para adicionar itens. */
+  function abrir(m: Mesa) {
+    setSelecionada(m.id);
+    const c = contaPorMesa.get(m.id);
+    if (c) return setLancando({ contaId: c.id, numero: m.numero, totalAtual: total(c) });
+    const id = abrirConta({ canal: "mesa", mesaId: m.id });
+    setLancando({ contaId: id, numero: m.numero, totalAtual: 0 });
+  }
+
+  // Um clique seleciona; o segundo clique na mesma mesa (até 2,5 s) abre.
+  function clicarMesa(m: Mesa) {
+    const u = ultimoClique.current;
+    if (u && u.id === m.id && Date.now() - u.em < JANELA_DOIS_CLIQUES) {
+      ultimoClique.current = null;
+      return abrir(m);
+    }
+    ultimoClique.current = { id: m.id, em: Date.now() };
+    selecionar(m);
+  }
+
+  const mesaPorNumero = (n: string) => mesas.find((x) => String(x.numero) === n.trim());
 
   const ocupadas = mesas.filter((m) => estadoDa(m) !== "livre").length;
 
+  function digitarNumero(n: string) {
+    setNumero(n);
+    setAviso("");
+    const m = mesaPorNumero(n);
+    if (m) selecionar(m);
+  }
+
   function irParaNumero() {
-    const m = mesas.find((x) => String(x.numero) === numero.trim());
+    const m = numero ? mesaPorNumero(numero) : mesaSel;
     if (!m) {
       setAviso(numero ? `Mesa ${numero} não existe` : "");
       return;
@@ -71,8 +91,32 @@ export default function MesasPage() {
     setAviso("");
     setNumero("");
     campoNumero.current?.blur();
-    tocar(m);
+    abrir(m);
   }
+  const botaoAbrir = useDoisCliques(irParaNumero);
+
+  // Teclado na tela de mesas: número seleciona a mesa, Enter abre, Esc limpa.
+  const teclado = useRef<(ev: KeyboardEvent) => void>(() => {});
+  teclado.current = (ev: KeyboardEvent) => {
+    if (ev.ctrlKey || ev.metaKey || ev.altKey || document.querySelector("[role=dialog]")) return;
+    const alvo = ev.target as HTMLElement;
+    if (alvo.closest("input, textarea, select")) return;
+    if (/^[0-9]$/.test(ev.key)) {
+      ev.preventDefault();
+      digitarNumero(ev.key);
+      campoNumero.current?.focus();
+    } else if (ev.key === "Enter" && mesaSel && (!alvo.closest("button, a") || alvo.closest("[data-mesa]"))) {
+      ev.preventDefault();
+      abrir(mesaSel);
+    } else if (ev.key === "Escape" && selecionada) {
+      setSelecionada(null);
+    }
+  };
+  useEffect(() => {
+    const ouvir = (ev: KeyboardEvent) => teclado.current(ev);
+    window.addEventListener("keydown", ouvir);
+    return () => window.removeEventListener("keydown", ouvir);
+  }, []);
 
   return (
     <div className="mx-auto max-w-[1400px]">
@@ -95,14 +139,26 @@ export default function MesasPage() {
             <input
               ref={campoNumero}
               value={numero}
-              onChange={(ev) => { setNumero(ev.target.value.replace(/\D/g, "").slice(0, 3)); setAviso(""); }}
+              onChange={(ev) => digitarNumero(ev.target.value.replace(/\D/g, "").slice(0, 3))}
+              onKeyDown={(ev) => {
+                if (ev.key === "Escape") {
+                  setNumero("");
+                  ev.currentTarget.blur();
+                }
+              }}
               inputMode="numeric"
               placeholder="Nº da mesa"
               aria-label="Número da mesa"
               className="num w-[92px] bg-transparent text-[14px] font-bold outline-none placeholder:font-medium placeholder:text-mudo"
             />
-            <button type="submit" className="rounded-full bg-acao px-3 py-1.5 text-[12px] font-bold text-white">
-              Abrir
+            <button
+              type="button"
+              onClick={botaoAbrir.clicar}
+              onBlur={botaoAbrir.desarmar}
+              title="Abrir a mesa · dois cliques ou Enter"
+              className={clsx("touch-manipulation rounded-full px-3 py-1.5 text-[12px] font-bold", botaoAbrir.armado ? "bg-rosado text-acao ring-2 ring-acao" : "bg-acao text-white")}
+            >
+              {botaoAbrir.armado ? "De novo" : "Abrir"}
             </button>
           </form>
           <button
@@ -176,9 +232,12 @@ export default function MesasPage() {
                     return (
                       <button
                         key={m.id}
-                        onClick={() => tocar(m)}
+                        id={`mesa-${m.id}`}
+                        data-mesa
+                        onClick={() => clicarMesa(m)}
+                        title="Um clique mostra a mesa · dois cliques abrem"
                         className={clsx(
-                          "relative flex min-h-[84px] flex-col items-start rounded-[18px] border-l-[5px] bg-card p-3 text-left shadow-card transition-transform active:scale-[.97]",
+                          "relative flex min-h-[84px] touch-manipulation select-none flex-col items-start rounded-[18px] border-l-[5px] bg-card p-3 text-left shadow-card transition-transform active:scale-[.97]",
                           g.estado === "livre" && "border-l-linha",
                           g.estado === "ocupada" && "border-l-acao",
                           g.estado === "fechamento" && "border-l-st-preparo",
@@ -205,14 +264,40 @@ export default function MesasPage() {
           })}
         </div>
 
-        <aside className={clsx("lg:sticky lg:top-28 lg:h-[calc(100dvh-150px)]", !contaSel && "hidden lg:block")}>
+        <aside className={clsx("lg:sticky lg:top-28 lg:h-[calc(100dvh-150px)]", !mesaSel && "hidden lg:block")}>
           {contaSel ? (
             <div className="fixed inset-0 z-40 overflow-y-auto bg-fundo p-4 lg:static lg:h-full lg:p-0">
               <PainelConta contaId={contaSel.id} aoFechar={() => setSelecionada(null)} />
             </div>
+          ) : mesaSel ? (
+            // No celular a mesa livre aparece numa gaveta embaixo, deixando as mesas visíveis para o segundo toque
+            <div className="fixed inset-x-0 bottom-0 z-40 rounded-t-3xl bg-fundo p-4 pb-6 shadow-flutuante lg:static lg:h-full lg:rounded-none lg:p-0 lg:shadow-none">
+              <div className="mb-3 flex items-start gap-2">
+                <div className="flex-1">
+                  <p className="text-[18px] font-extrabold leading-tight">{rotuloMesa(mesaSel)}</p>
+                  <p className="text-[12px] text-mudo">Sem conta aberta</p>
+                </div>
+                <Pilula cor="verde">Livre</Pilula>
+                <button onClick={() => setSelecionada(null)} className="flex h-8 w-8 items-center justify-center rounded-full bg-secundario" aria-label="Fechar painel">
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="mb-3 grid grid-cols-4 gap-2 sm:grid-cols-6">
+                <Acao icone={Plus} rotulo="Abrir mesa" destaque onClick={() => abrir(mesaSel)} />
+              </div>
+              <div className="rounded-2xl border border-linha bg-card px-4 py-4 text-center text-[13px] text-mudo lg:py-8">
+                Nenhum item lançado ainda.
+                <br />
+                Dois cliques na mesa, <b className="text-tinta">Enter</b> ou dois toques em <b className="text-tinta">Abrir mesa</b> para lançar o pedido.
+              </div>
+            </div>
           ) : (
             <div className="rounded-[20px] bg-card shadow-card">
-              <Vazio icone={Armchair} titulo="Escolha uma mesa" texto="Toque numa mesa livre para abrir e lançar o pedido, ou numa ocupada para ver a conta." />
+              <Vazio
+                icone={Armchair}
+                titulo="Escolha uma mesa"
+                texto="Um clique mostra a mesa aqui; dois cliques abrem. Digite o número no teclado para achar a mesa e aperte Enter para abrir."
+              />
             </div>
           )}
         </aside>
@@ -224,7 +309,7 @@ export default function MesasPage() {
           if (lancando) descartarSeVazia(lancando.contaId);
           setLancando(null);
         }} titulo={`${rotuloMesa(mesas.find((m) => m.numero === lancando?.numero))} · novo pedido`} largura="xl">
-        {lancando && <Lancador contaId={lancando.contaId} titulo={`Mesa ${lancando.numero}`} totalAtual={0} aoEnviar={() => setLancando(null)} />}
+        {lancando && <Lancador contaId={lancando.contaId} titulo={`Mesa ${lancando.numero}`} totalAtual={lancando.totalAtual} aoEnviar={() => setLancando(null)} />}
       </Modal>
     </div>
   );
