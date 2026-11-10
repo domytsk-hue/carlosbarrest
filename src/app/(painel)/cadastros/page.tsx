@@ -72,7 +72,7 @@ export default function CadastrosPage() {
           aoExcluir={(m) => excluirRegistro("mesas", m.id)}
           campos={[
             { chave: "numero", rotulo: "Número", tipo: "numero", obrigatorio: true },
-            { chave: "area", rotulo: "Localização", tipo: "opcao", obrigatorio: true, opcoes: LOCALIZACOES.map((l) => ({ valor: l, rotulo: l })) },
+            { chave: "area", rotulo: "Setor", tipo: "opcao", obrigatorio: true, opcoes: LOCALIZACOES.map((l) => ({ valor: l, rotulo: l })) },
             { chave: "lugares", rotulo: "Lugares", tipo: "numero" },
           ]}
         />
