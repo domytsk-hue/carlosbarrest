@@ -8,6 +8,7 @@ import "@fontsource/poppins/latin-800.css";
 import "@fontsource/roboto-slab/latin-700.css";
 import "@fontsource/roboto-slab/latin-800.css";
 import "./globals.css";
+import { RegistrarOffline } from "@/components/pwa/registrar-offline";
 
 export const metadata: Metadata = {
   title: "Carlo's · Gestão",
@@ -28,7 +29,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <head>
         <script dangerouslySetInnerHTML={{ __html: temaInicial }} />
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        {children}
+        <RegistrarOffline />
+      </body>
     </html>
   );
 }

@@ -39,6 +39,26 @@ export function papelLembrado(): Funcao | null {
   }
 }
 
+/** Última sessão aberta neste aparelho, para abrir o sistema sem internet. */
+const CHAVE_ULTIMA = "carlos:sessao:ultima";
+
+function ultimaSessao(userId?: string): Sessao | null {
+  try {
+    const bruto = localStorage.getItem(CHAVE_ULTIMA);
+    if (!bruto) return null;
+    const { userId: dono, ...s } = JSON.parse(bruto) as Sessao & { userId: string };
+    return !userId || dono === userId ? s : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Erro de rede (sem internet), e não login inválido ou vencido de verdade. */
+function semInternet(erro: { name?: string; status?: number; message?: string }) {
+  if (typeof navigator !== "undefined" && !navigator.onLine) return true;
+  return erro.name === "AuthRetryableFetchError" || erro.status === 0 || /fetch|network/i.test(erro.message ?? "");
+}
+
 // A sessão é carregada uma vez por aba e guardada aqui. Antes, cada clique no
 // menu ia ao servidor conferir o login e buscar o restaurante de novo; agora
 // as telas do painel abrem direto no navegador e o login é conferido no
@@ -52,9 +72,13 @@ async function buscar(): Promise<Sessao | null> {
   const sb = criarClienteNavegador();
   const {
     data: { session },
+    error: erroLogin,
   } = await sb.auth.getSession();
   const user = session?.user;
-  if (!user) return null;
+  // Sem internet o login não consegue ser renovado: o aparelho que já estava
+  // logado continua com a última sessão guardada (os envios ao servidor
+  // esperam a internet e o login voltarem).
+  if (!user) return erroLogin && semInternet(erroLogin) ? ultimaSessao() : null;
 
   // Mesma pessoa na mesma aba: reaproveita sem consultar o banco
   try {
@@ -65,13 +89,18 @@ async function buscar(): Promise<Sessao | null> {
     }
   } catch {}
 
-  const { data: vinculo } = await sb
+  const { data: vinculo, error: erroVinculo } = await sb
     .from("membros")
     .select("funcao, nome_exibicao, restaurantes(id, nome)")
     .eq("user_id", user.id)
     .eq("ativo", true)
     .limit(1)
     .maybeSingle();
+
+  if (erroVinculo) {
+    const ultima = ultimaSessao(user.id);
+    if (ultima) return ultima;
+  }
 
   const restaurante = vinculo?.restaurantes as unknown as { id: string; nome: string } | null;
   const s: Sessao = {
@@ -86,6 +115,7 @@ async function buscar(): Promise<Sessao | null> {
   try {
     sessionStorage.setItem(CHAVE, JSON.stringify({ ...s, userId: user.id }));
     localStorage.setItem(CHAVE_PAPEL, s.papel ?? "");
+    if (!erroVinculo) localStorage.setItem(CHAVE_ULTIMA, JSON.stringify({ ...s, userId: user.id }));
   } catch {}
   return s;
 }
@@ -118,6 +148,7 @@ export function limparSessao() {
   try {
     sessionStorage.removeItem(CHAVE);
     localStorage.removeItem(CHAVE_PAPEL);
+    localStorage.removeItem(CHAVE_ULTIMA);
   } catch {}
 }
 
@@ -125,7 +156,10 @@ export function limparSessao() {
 export async function sair() {
   if (supabaseConfigurado) {
     const { criarClienteNavegador } = await import("./supabase/client");
-    await criarClienteNavegador().auth.signOut();
+    // Sem internet a saída avisa o servidor depois; aqui o aparelho já sai
+    await criarClienteNavegador()
+      .auth.signOut()
+      .catch(() => {});
   }
   limparSessao();
   window.location.assign("/login");
