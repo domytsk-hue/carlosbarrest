@@ -4,6 +4,7 @@ import clsx from "clsx";
 import Image from "next/image";
 import { Printer, UtensilsCrossed } from "lucide-react";
 import { useState } from "react";
+import { CampoFoto } from "@/components/campo-foto";
 import { EditorLista } from "@/components/editor-lista";
 import { imprimir } from "@/components/impressao";
 import { Botao, Pilula, Titulo } from "@/components/ui";
@@ -79,7 +80,12 @@ export default function ProdutosPage() {
           { chave: "porKg", rotulo: "Vendido por quilo (balança)", tipo: "booleano", naTabela: false },
           { chave: "precoDelivery", rotulo: "Preço no delivery (opcional)", tipo: "valor", naTabela: false },
           { chave: "descricao", rotulo: "Descrição", naTabela: false },
-          { chave: "foto", rotulo: "Foto (endereço da imagem)", naTabela: false },
+          {
+            chave: "foto",
+            rotulo: "Foto",
+            naTabela: false,
+            editor: (p, set) => <CampoFoto valor={p.foto} aoMudar={set} produto={p} />,
+          },
         ]}
       />
     </div>

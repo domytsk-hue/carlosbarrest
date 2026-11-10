@@ -16,6 +16,8 @@ export type CampoDef<T> = {
   obrigatorio?: boolean;
   /** false = só aparece na tabela */
   formulario?: boolean;
+  /** Controle próprio no formulário (ocupa a linha inteira), no lugar da entrada padrão */
+  editor?: (item: T, aoMudar: (v: unknown) => void) => React.ReactNode;
 };
 
 /** Cadastro genérico: tabela + formulário em modal. */
@@ -78,6 +80,14 @@ export function EditorLista<T extends { id: string }>({
             {campos.filter((c) => c.formulario !== false).map((c) => {
               const v = editando[c.chave] as unknown;
               const set = (nv: unknown) => setEditando({ ...editando, [c.chave]: nv });
+              if (c.editor)
+                // div em vez de <label>: o controle próprio pode ter vários botões e entradas
+                return (
+                  <div key={c.chave} className="sm:col-span-2">
+                    <span className="mb-1.5 block text-[12.5px] font-semibold">{c.rotulo + (c.obrigatorio ? " *" : "")}</span>
+                    {c.editor(editando, set)}
+                  </div>
+                );
               return (
                 <Campo key={c.chave} rotulo={c.rotulo + (c.obrigatorio ? " *" : "")} className={c.tipo === "texto" || !c.tipo ? "sm:col-span-2" : ""}>
                   {c.tipo === "opcao" ? (
