@@ -53,6 +53,8 @@ const ouvintesStatus = new Set<() => void>();
 let envioAgendado: ReturnType<typeof setTimeout> | null = null;
 let enviando = false;
 let pronta = false;
+/** A primeira carga do servidor já foi feita (sem ela, não dá para saber o que mudou aqui). */
+let carregado = false;
 
 function mudarStatus(s: StatusNuvem) {
   if (s === status) return;
@@ -164,6 +166,7 @@ async function enviar() {
   if (!sb || !rid || enviando) return;
   enviando = true;
   try {
+    if (!carregado) await cargaInicial();
     const lista = pendentes();
     for (let i = 0; i < lista.length; i += LOTE) {
       const lote = lista.slice(i, i + LOTE);
@@ -199,6 +202,7 @@ async function enviar() {
 
 async function buscar(quais?: { colecao: string; id: string }[]) {
   if (!sb || !rid) return;
+  if (!carregado) return cargaInicial();
   const todos: Registro[] = [];
   if (quais) {
     const porColecao = new Map<string, string[]>();
@@ -243,6 +247,54 @@ function lerVersoes(): Record<string, number> | undefined {
   }
 }
 
+/**
+ * Primeira carga completa deste aparelho. Se o sistema abriu sem internet,
+ * roda de novo quando a conexão voltar (antes de enviar o que foi feito aqui).
+ */
+async function cargaInicial() {
+  if (!sb || !rid) return;
+  const conhecidas = lerVersoes();
+  const todos: Registro[] = [];
+  for (let de = 0; ; de += 1000) {
+    const { data, error } = await sb.from("loja_registros").select("colecao,id,dados,versao,atualizado_em").eq("restaurante_id", rid).order("atualizado_em").range(de, de + 999);
+    if (error) throw error;
+    todos.push(...(data as Registro[]));
+    if (!data || data.length < 1000) break;
+  }
+  // Registro que este aparelho já tinha sincronizado e sumiu do servidor não volta
+  if (conhecidas) {
+    const noServidor = new Set(todos.map((r) => chave(r.colecao, r.id)));
+    const sumidos = Object.keys(conhecidas).filter((k) => !noServidor.has(k));
+    if (sumidos.length)
+      atualizar((e) => {
+        const novo = { ...e } as unknown as Record<string, unknown>;
+        for (const k of sumidos) {
+          const [c, id] = k.split("\u0000");
+          if (COLECOES.includes(c)) novo[c] = (novo[c] as { id: string }[]).filter((x) => x.id !== id);
+        }
+        return novo as unknown as Estado;
+      });
+  }
+  aplicar(todos, true, conhecidas);
+  // Aparelho novo entrando num restaurante que já tem dados: o que for só
+  // exemplo (e não existe lá) fica de fora, para não ressuscitar o que foi apagado
+  if (!conhecidas && todos.length) {
+    const noServidor = new Set(todos.map((r) => chave(r.colecao, r.id)));
+    const semente = registrosLocais(SEMENTE);
+    atualizar((e) => {
+      const novo = { ...e } as unknown as Record<string, unknown>;
+      for (const c of COLECOES)
+        novo[c] = (novo[c] as { id: string }[]).filter((x) => {
+          const k = chave(c, x.id);
+          return noServidor.has(k) || !semente.has(k) || json(semente.get(k)![2]) !== json(x);
+        });
+      return novo as unknown as Estado;
+    });
+  }
+  carregado = true;
+  mudarStatus("ok");
+}
+
 /** Liga a sincronização deste aparelho com o restaurante (uma vez por aba). */
 export async function iniciarSincronizacao(restauranteId: string) {
   rid = restauranteId;
@@ -250,47 +302,8 @@ export async function iniciarSincronizacao(restauranteId: string) {
   const { criarClienteNavegador } = await import("../supabase/client");
   sb = criarClienteNavegador();
 
-  // Primeira carga completa
-  const conhecidas = lerVersoes();
   try {
-    const todos: Registro[] = [];
-    for (let de = 0; ; de += 1000) {
-      const { data, error } = await sb.from("loja_registros").select("colecao,id,dados,versao,atualizado_em").eq("restaurante_id", rid).order("atualizado_em").range(de, de + 999);
-      if (error) throw error;
-      todos.push(...(data as Registro[]));
-      if (!data || data.length < 1000) break;
-    }
-    // Registro que este aparelho já tinha sincronizado e sumiu do servidor não volta
-    if (conhecidas) {
-      const noServidor = new Set(todos.map((r) => chave(r.colecao, r.id)));
-      const sumidos = Object.keys(conhecidas).filter((k) => !noServidor.has(k));
-      if (sumidos.length)
-        atualizar((e) => {
-          const novo = { ...e } as unknown as Record<string, unknown>;
-          for (const k of sumidos) {
-            const [c, id] = k.split("\u0000");
-            if (COLECOES.includes(c)) novo[c] = (novo[c] as { id: string }[]).filter((x) => x.id !== id);
-          }
-          return novo as unknown as Estado;
-        });
-    }
-    aplicar(todos, true, conhecidas);
-    // Aparelho novo entrando num restaurante que já tem dados: o que for só
-    // exemplo (e não existe lá) fica de fora, para não ressuscitar o que foi apagado
-    if (!conhecidas && todos.length) {
-      const noServidor = new Set(todos.map((r) => chave(r.colecao, r.id)));
-      const semente = registrosLocais(SEMENTE);
-      atualizar((e) => {
-        const novo = { ...e } as unknown as Record<string, unknown>;
-        for (const c of COLECOES)
-          novo[c] = (novo[c] as { id: string }[]).filter((x) => {
-            const k = chave(c, x.id);
-            return noServidor.has(k) || !semente.has(k) || json(semente.get(k)![2]) !== json(x);
-          });
-        return novo as unknown as Estado;
-      });
-    }
-    mudarStatus("ok");
+    await cargaInicial();
   } catch {
     mudarStatus("offline");
   }
